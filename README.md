@@ -29,7 +29,7 @@ Forked from Ontje: https://github.com/ontje/node-red-contrib-countdown.git Thank
 ## Usage
 
 <a name="node_configuration"></a>
-### Node Configuration
+### Node Configuration (outdated image)
 
 ![node-settings](images/node-settings.png "Node properties")  
 **Fig. 2:** Node properties
