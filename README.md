@@ -1,14 +1,14 @@
 # node-red-contrib-countdown
-`node-red-contrib-countdown` is a simple countdown node.  
-It starts a **countdown timer** on a received input `msg` and decreases the counter value (at the first output) until the countdown timer elapses. The countdown can be **stopped at any time**. Also the countdown timer can be set to any new countdown value at any time to **reload the timer** with a specific value.
+`node-red-contrib-countdown-2` is a simple countdown node.
+It starts a **countdown timer** on a received input `msg` and decreases the counter value (at the first output) until the countdown timer elapses. The countdown can be **stopped at any time**. Also the countdown timer can be set to any new countdown value at any time to **reload the timer** with a specific value. **manual stopped** can be configured to send output or **cancel** which does not send output payloads.
 
-The output can **emit a `msg`** at its first output with an arbitrary `msg.payload` contents at the **start** of the timer as well as at the **stop** of the countdown timer.   
+The output can **emit a `msg`** at its first output with an arbitrary `msg.payload` contents at the **start** of the timer as well as at the **stop** of the countdown timer. or nothing if **cancled** timer.
 At the **second Output** the node emits the remaining counter value every second.
 
 The node's output `msg` can optionally contain an arbitrary topic string.
 
 
-Loosely based on prior work by Neil Cherry: https://github.com/linuxha/node-red-contrib-mytimeout
+Forked from Ontje: https://github.com/ontje/node-red-contrib-countdown.git Thank you!
 
 ![node-appearance](images/node-appearance.png "Node appearance")  
 **Fig. 1:** Node appearance
@@ -18,12 +18,12 @@ Loosely based on prior work by Neil Cherry: https://github.com/linuxha/node-red-
 
 <a name="installation_in_node-red"></a>
 ### In Node-RED (preferred)
-* Via Manage Palette -> Search for "node-red-contrib-countdown"
+* Via Manage Palette -> Search for "node-red-contrib-countdown-2"
 
 <a name="installation_in_a_shell"></a>
 ### In a shell
 * go to the Node-RED installation folder, e.g.: `~/.node-red`
-* run `npm install node-red-contrib-countdown`
+* run `npm install node-red-contrib-countdown-2`
 
 <a name="usage"></a>
 ## Usage
@@ -50,6 +50,7 @@ In both cases, also nothing to be emitted may be chosen.
 
 #### Flags
 You can configure the timer to
+- Timer in Minutes (default is seconds)
 - **restart** (reload) the timer to its countdown start value during the count down whenever a `msg` is received at the node's input.
 - activate the ability to **set the timer value** to an arbitrary value during the count down with the use of a control `msg`.
 - **start the timer** with a control `msg` (i.e. a `msg` with a *control* topic string).
@@ -62,7 +63,7 @@ The node evaluates the following input `msg` types:
   This `msg` type stops resp. finishes the timer. The *Timer Off payload* is emitted also in this case.
 - Input `msg` with a `msg.topic` set to "control" and a `msg.payload` set to an arbitrary number value. This reloads the timer with the desired `msg.payload` value immediately and works at a running countdown as well as a non startet or elapsed countdown timer.  
 - All other input `msg` do start/restart the timer if it is stopped.
-
+- See Node configuration for `control` topic options to `cancel` the timer.
 
 ## Outputs
 The node contains two outputs:
@@ -70,7 +71,8 @@ The node contains two outputs:
 - The **secondary output** (lower output) emits the **remaining time every second** during the timer runs. The `msg.payload` holds the remaining counting value
 
 
-## Examples
+## Examples (original)
+### Todo: create examples for modified control/stop/etc.
 
 ### Basic behaviour
 This example shows the basic behaviour with

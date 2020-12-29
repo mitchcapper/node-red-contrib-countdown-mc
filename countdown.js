@@ -3,6 +3,7 @@ module.exports = function(RED) {
 
     const isNumber = require('is-number');
 
+    
     function countdown(config) {
         RED.nodes.createNode(this, config);
         var node = this;
@@ -15,12 +16,23 @@ module.exports = function(RED) {
 
         this.status({ fill: "red", shape: "dot", text: "Stopped: " + timeout });
 
+        function runningMessage(ticks) {
+            var m = "Running: " + ticks;
+            if(node.config.minuteCounter) {
+                m = m + " minute(s)";
+            } else {
+                m = m + " second(s)";
+            }
+            return m;
+        }
+
         function startTimer() {
             timeout = timeout || parseInt(node.config.timer);
             ticks = timeout;
 
+            // running status message
             node.status({
-                fill: "green", shape: "dot", text: "Running: " + ticks
+                fill: "green", shape: "dot", text: runningMessage(ticks)
             });
 
             // Timer Message
@@ -37,23 +49,35 @@ module.exports = function(RED) {
 
 
             if (!ticker) {
-                ticker = setInterval(function() { node.emit("TIX"); }, 1000);
+                var secMinute = 1000;
+                if(node.config.minuteCounter) {
+                    secMinute = 1000 * 60;
+                    node.warn("setting to minutes");
+                }
+                ticker = setInterval(function() { node.emit("TIX"); }, secMinute);
             }
         }
 
-        function stopTimer() {
+        function stopTimer(output=true) {
             node.status({
                 fill: "red", shape: "dot", text: "Stopped: " + timeout
             });
 
             // Timer Message
             var msg = {}
-            msg.payload = RED.util.evaluateNodeProperty(node.config.payloadTimerStop, node.config.payloadTimerStopType, node); 
-            if (node.config.topic !== '') {
-                msg.topic = node.config.topic;
+            var cancel = false;
+            if(output) {
+                msg.payload = RED.util.evaluateNodeProperty(node.config.payloadTimerStop, node.config.payloadTimerStopType, node); 
+                if (node.config.topic !== '') {
+                    msg.topic = node.config.topic;
+                }
+            } else {
+                msg = null;
+                cancel = true;
             }
-
-            var remainingTicksMsg = { "payload": 0 };
+            
+            
+            var remainingTicksMsg = { "payload": ticks, "cancled": cancel };
 
             // only send stop msg if type is not equal "send nothing" option
             if (node.config.payloadTimerStopType == "nul") {
@@ -81,8 +105,9 @@ module.exports = function(RED) {
                 var remainingTicksMsg = { "payload": ticks };
                 node.send([null, remainingTicksMsg]);
         
+                // update Running status message
                 node.status({
-                    fill: "green", shape: "dot", text: "Running: " + ticks
+                    fill: "green", shape: "dot", text: runningMessage(ticks)
                 });
 
             } else if (ticks == 1){
@@ -120,7 +145,12 @@ module.exports = function(RED) {
              
                     }
                 } else {
-                    // do nothing
+                    if(msg.payload === "cancel") {
+                        stopTimer(false);
+                    }
+                    if(msg.payload === "reset") {
+                        startTimer();
+                    }
                 }
             } else {
                 if (msg.payload === false || msg.payload === 0) {
