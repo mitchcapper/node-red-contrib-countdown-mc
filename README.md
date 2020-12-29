@@ -29,14 +29,14 @@ Forked from Ontje: https://github.com/ontje/node-red-contrib-countdown.git Thank
 ## Usage
 
 <a name="node_configuration"></a>
-### Node Configuration (outdated image)
+### Node Configuration
 
 ![node-settings](images/node-settings.png "Node properties")  
 **Fig. 2:** Node properties
 
 
 #### Countdown (secs) property
-Set the ***Countdown*** value to the desired countdown time in seconds. The timer will start with this countdown value to decrease the timer value (countdown start value).
+Set the ***Countdown*** value to the desired countdown time in seconds. The timer will start with this countdown value to decrease the timer value (countdown start value).  Minutes if the option "Counter is in Minutes" is checked.
 
 #### Topic
 The ***Topic*** can be set to any string value. This string is added to the output `msg` as an additional element `msg.topic`.  
