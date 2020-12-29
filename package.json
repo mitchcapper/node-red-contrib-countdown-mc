@@ -1,7 +1,7 @@
 {
   "name": "node-red-contrib-countdown-2",
   "version": "1.4.0",
-  "description": "A countdown that supports dynamic setting of (future) run time; original from https://github.com/ontje/node-red-contrib-countdown.git",
+  "description": "A countdown that supports dynamic setting of (future) run time and stopping with or without payload output",
   "main": "countdown.js",
   "scripts": {},
   "keywords": [
@@ -21,10 +21,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/marc-gist/node-red-contrib-countdown"
+    "url": "git+https://github.com/marc-gist/node-red-contrib-countdown.git"
   },
-  "homepage": "",
+  "homepage": "https://github.com/marc-gist/node-red-contrib-countdown#readme",
   "dependencies": {
     "is-number": "^7.0.0"
+  },
+  "bugs": {
+    "url": "https://github.com/marc-gist/node-red-contrib-countdown/issues"
+  },
+  "directories": {
+    "example": "examples"
   }
 }
