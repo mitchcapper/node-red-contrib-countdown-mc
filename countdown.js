@@ -12,22 +12,40 @@ module.exports = function(RED) {
         // Local variables
         var ticker = null;
         var ticks = -1;
-        var timeout = parseInt(node.config.timer);
+        var timeout = getTimeout();
+
+        var stopMsg = {};
 
         this.status({ fill: "red", shape: "dot", text: "Stopped: " + timeout });
 
-        function runningMessage(ticks) {
-            var m = "Running: " + ticks;
+        function getTimeout() {
             if(node.config.minuteCounter) {
-                m = m + " minute(s)";
+                return parseInt(node.config.timer) * 60;
             } else {
-                m = m + " second(s)";
+                return parseInt(node.config.timer);
             }
-            return m;
+        }
+
+        function runningMessage(ticks) {
+            var t = ticks;
+            var m = false;
+            if(t / 60 > 1) {
+                t = t / 60;
+                t = t.toFixed(2);
+                //node.warn("minute running: " + t);
+                m = true;
+            }
+            var ret = "Running: " + t;
+            if(m) {
+                ret = ret + " minute(s)";
+            } else {
+                ret = ret + " second(s)";
+            }
+            return ret;
         }
 
         function startTimer() {
-            timeout = timeout || parseInt(node.config.timer);
+            timeout = timeout || getTimeout();
             ticks = timeout;
 
             // running status message
@@ -49,25 +67,28 @@ module.exports = function(RED) {
 
 
             if (!ticker) {
-                var secMinute = 1000;
-                if(node.config.minuteCounter) {
-                    secMinute = 1000 * 60;
-                    node.warn("setting to minutes");
-                }
-                ticker = setInterval(function() { node.emit("TIX"); }, secMinute);
+                ticker = setInterval(function() { node.emit("TIX"); }, 1000);
             }
         }
 
         function stopTimer(output=true) {
+            var tOutMsg = timeout + " sec";
+            if(node.config.minuteCounter) {
+                tOutMsg = parseInt(node.config.timer) + " min";
+            }
             node.status({
-                fill: "red", shape: "dot", text: "Stopped: " + timeout
+                fill: "red", shape: "dot", text: "Stopped: " + tOutMsg
             });
 
             // Timer Message
             var msg = {}
             var cancel = false;
             if(output) {
-                msg.payload = RED.util.evaluateNodeProperty(node.config.payloadTimerStop, node.config.payloadTimerStopType, node); 
+                if(node.config.payloadTimerStopType === 'msg') {
+                    msg = stopMsg;
+                } else {
+                    msg.payload = RED.util.evaluateNodeProperty(node.config.payloadTimerStop, node.config.payloadTimerStopType, node); 
+                }
                 if (node.config.topic !== '') {
                     msg.topic = node.config.topic;
                 }
@@ -153,18 +174,39 @@ module.exports = function(RED) {
                     }
                 }
             } else {
-                if (msg.payload === false || msg.payload === 0) {
-                    stopTimer();
-                } else {
-                    if (ticker) {
-                        if (node.config.resetWhileRunning) {
-                            endTicker();
-                            startTimer();
-                        }
+                if(node.config.payloadTimerStopType === 'msg') {
+                    var prop = RED.util.evaluateNodeProperty(node.config.payloadTimerStop, node.config.payloadTimerStopType, node);
+                    if(msg.hasOwnProperty(prop)) {
+                        stopMsg = {
+                            "payload": msg[prop]
+                        };
                     } else {
-                        startTimer();
+                        node.warn("Property not set correctly Msg does not have " + prop);
+                        stopMsg = {
+                            "payload": prop
+                        };
                     }
                 }
+                if (ticker) {
+                    if (node.config.resetWhileRunning) {
+                        endTicker();
+                        startTimer();
+                    }
+                } else {
+                    startTimer();
+                }
+                // if (msg.payload === false || msg.payload === 0) {
+                //     stopTimer();
+                // } else {
+                //     if (ticker) {
+                //         if (node.config.resetWhileRunning) {
+                //             endTicker();
+                //             startTimer();
+                //         }
+                //     } else {
+                //         startTimer();
+                //     }
+                // }
             }
         });
 
