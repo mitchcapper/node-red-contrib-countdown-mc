@@ -175,16 +175,13 @@ module.exports = function(RED) {
                 }
             } else {
                 if(node.config.payloadTimerStopType === 'msg') {
+                    
                     var prop = RED.util.evaluateNodeProperty(node.config.payloadTimerStop, node.config.payloadTimerStopType, node);
-                    if(msg.hasOwnProperty(prop)) {
-                        stopMsg = {
-                            "payload": msg[prop]
-                        };
-                    } else {
-                        node.warn("Property not set correctly Msg does not have " + prop);
-                        stopMsg = {
-                            "payload": prop
-                        };
+                    stopMsg = {
+                        "payload": RED.util.getMessageProperty(msg, node.config.payloadTimerStop)
+                    }
+                    if(typeof stopMsg.payload === 'undefined' ) {
+                        node.warn("Message Attribute not defined");
                     }
                 }
                 if (ticker) {
@@ -195,18 +192,7 @@ module.exports = function(RED) {
                 } else {
                     startTimer();
                 }
-                // if (msg.payload === false || msg.payload === 0) {
-                //     stopTimer();
-                // } else {
-                //     if (ticker) {
-                //         if (node.config.resetWhileRunning) {
-                //             endTicker();
-                //             startTimer();
-                //         }
-                //     } else {
-                //         startTimer();
-                //     }
-                // }
+                
             }
         });
 
