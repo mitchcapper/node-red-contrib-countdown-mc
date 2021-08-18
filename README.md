@@ -116,3 +116,11 @@ This example shows the functionality of reloading the countdown value during a r
 ![Alt text](images/flow-reload.png?raw=true "Reloading timer flow")  
 [**reloading timer flow**](examples/FlowReload.json)  
 **Fig. 6:** Timer reload example flow
+
+# Change Log
+
+## 1.4.3
+- Code clean up
+
+## 1.4.2
+- Fixing output set to: `msg`, not storing correct property.
