@@ -6,6 +6,8 @@ This code is based on node-red-contrib-countdown-2 by marc, see here for the gen
 
 https://github.com/marc-gist/node-red-contrib-countdown
 
+**JUL 2023: WORK IN PROGRESS. USE IN PRODUCTION AT YOUR OWN RISK**
+
 This version is highly compatible with countdown-2 v1.4.2 with the following changes and fixes:
 
 **Changes / Enhancements**
@@ -44,6 +46,12 @@ This version is highly compatible with countdown-2 v1.4.2 with the following cha
       a new value set and the count started from this value rather than the one set in 
       the node's interface. 
 
+# TODO
+
+* Edit documentation
+* More testing
+* Upload demo flow
+  
 # Change Log
 
 ## 1.0.0
