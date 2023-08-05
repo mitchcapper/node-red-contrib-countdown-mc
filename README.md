@@ -51,7 +51,7 @@ This version is highly compatible with countdown-2 v1.4.2 with the following cha
 ## 1.5.0L
 - Code forked from countdown-2 and bug fixes + enhancements applied.
 
-#Original notes from Countdown-2 V1.4.2
+# Original notes from Countdown-2 V1.4.2
 
 **READ IN CONJUNCTION WITH CHANGES LISTED ABOVE**
 
