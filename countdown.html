@@ -53,7 +53,7 @@
 
 <script type="text/x-red" data-help-name="countdown">
 <p>
-  A simple countdown node. It starts countdown on any input. The countdown timer can be stopped immediately or can be reloaded with a 
+  Countdown-3000 - A simple countdown node. It starts countdown on any input. The countdown timer can be stopped immediately or can be reloaded with a 
   new counter value while it running.
 </p>
 
@@ -68,37 +68,74 @@
   </dl>
 
 
+ <h4>Starting the timer (formal values - see above too)</h4>
+    <dl class="message-properties">
+        <dt>payload
+            <span class="property-type">boolean | number</span>
+        </dt>
+        <dd>if <code>true</code> or <code>1</code> or <code>start</code> or <code>on</code>: Immediately starts the timer and sends output as per configuration </dd>
+    </dl>
+ 
   <h4>Stopping the timer</h4>
     <dl class="message-properties">
         <dt>payload
             <span class="property-type">boolean | number</span>
         </dt>
-        <dd>if <code>false</code> or <code>0</code>: Immediately stops the timer. <strong>AND</strong> Send output as per configuration </dd>
+        <dd>if <code>false</code> or <code>0</code> or <code>stop</code> or <code>off</code>: Immediately stops the timer and sends output as per configuration </dd>
     </dl>
     
-  <h4>Cancel the timer / Alternative Stop</h4>
+  <h4><B>Cancelling or reloading the timer and alternative stop and start methods</B></h4>
+    <P>For all the commands below, the message topic is set to <code><B>control</B></code>. Values are NOT case sensitive.<br /></P>
     <dl class="message-properties">
-      <dt>topic
-        <span class="property-type">string</span>
-      </dt>
-      <dd>set to <code>control</code>.</dd>
-      <dt>payload
-        <span class="property-type">string</span>
-      </dt>
-      <dd>if <code>cancel</code> (case sensitive) with topic = "control", timmer is stopped and <b>NO</b> output is sent</dd>
+		<dt>payload
+            <span class="property-type">string</span>
+        </dt>
+        <dd>Payload = <code>cancel</code>: Timer is stopped and <b>NO</b> output is sent.</dd>
     </dl>
 
-  <h4>Reloading the timer</h4>
+  <dl class="message-properties">
+		<dt>payload
+            <span class="property-type">string</span>
+        </dt>
+        <dd>Payload = <code>reset</code>: Timer restarts using the default (GUI) timer value.</dd>
+    </dl>
+
+ <dl class="message-properties">
+		<dt>payload
+            <span class="property-type">string</span>
+        </dt>
+        <dd>Payload = <code>preload</code>: Timer restarts using the currently set count value.<br /><br /></dd>
+        <P>The 'preload' command will restart a count at the current set value provided the<br /> 
+           value is not zero and the count is NOT currently running.<br /></P>
+    </dl>
+
+<dl class="message-properties">
+		<dt>payload
+            <span class="property-type">string</span>
+        </dt>
+        <dd>Payload = <code>pause</code>: Timer countdown is paused.<br /><br /></dd>
+        <P>While the timer is paused, the node will still output the current<br /> 
+           (paused) countdown value every second.<br /></P>
+    </dl>
+
+  <h4><B>Reloading the timer</B></h4>
+    <P>The timer can be loaded with a new value at any time as below. To override the GUI set<br />
+       value, stop or cancel the counter, set a new value and then start the counter with the 'preload' command.<br /></P>
     <dl class="message-properties">
         <dt>payload
             <span class="property-type">number | string</span>
         </dt>
         <dd>
           if <code>Number</code>: reloads the timer with the desired <code>msg.payload</code> value.<br />
-          if <code>String</code> = "<code>reset</code>", timmer will restart with default timer values used.
-        
-        </dd>
-        <dt>topic <span class="property-type">string</span></dt>
+          if <code>Negative integer</code>: Timer will subtract the <code>msg.payload</code> value from the current countdown.<br />
+          if <code>Signed string</code>: timer will add or subtract the <code>msg.payload</code> value from the current countdown.<br />
+          if <code>Positive or negative number with fraction</code>: timer will add or subtract the <code>msg.payload</code><br >
+          whole number part from the current countdown. Examples: -10.1, 12.2, "-3.4", "11.2"<br /><br /></dd>
+          <p>Numbers can be input as integers, numbers with fractional parts or strings in number format. The<br />
+             only exception is integers with a positive sign (eg: +12), where the sign is ignored.<br />
+             If you want to add a positive value to the count, make it a fraction or a string - eg: 12.1 or "+12".<br /><br />
+             If any adjustment makes the count value less than zero, the count ends.</p>
+        <dt>topic <span class="property-type">integer|fraction|string</span></dt>
         <dd>set to <code>control</code>.</dd>
     </dl>
 
@@ -107,34 +144,41 @@
         <li>Primary output
             <dl class="message-properties">
                 <dt>payload <span class="property-type"></span></dt>
-                <dd>configurable output <code>msg</code> at the countdown start/stop.</dd>
+                <dd>Configurable output <code>msg</code> at the countdown start/stop.</dd>
             </dl>
         </li>
         <li>Second output
             <dl class="message-properties">
                 <dt>payload <span class="property-type">number</span></dt>
-                <dd>give the remaining time.</dd>
+                <dd>Outputs the remaining time scaled to seconds or minutes depending on the node's setting in the GUI.<br >
+                Also outputs <code>true</code> when the counter starts and <code>false</code> when the counter reaches zero.<br /><br />
+                The first counter numeric value is output 1 second after the count starts, so if the node is set to count from<br />
+                25 seconds, the first output is 24. The last counter output is 0.<br /></dd>
             </dl>
         </li>
     </ol>
 
 
-
-
   <h3>Details</h3>
     <p>
-    <code>node-red-contrib-countdown</code> starts a countdown timer on a received input
+    <code>node-red-contrib-countdown-3000 </code> starts a countdown timer on a received input
     <code>msg</code> and decreases the counter value until the countdown timer elapses.
-    The countdown can be stopped at any time.
-    Also the countdown timer can be set to any new countdown value at any time to reload the timer with a specific value.
+    The countdown can be stopped at any time.The countdown timer can be set to a new<br />
+    countdown value at any time to restart the timer with a specific value.
     </p>
     <p>
-    At the <b>first output</b> the node can emit a <code>msg</code> with an arbitrary <code>msg.payload</code> contents at the start of the timer as well as at the stop of the countdown timer.
-    <br>
-    At the <b>second output</b> the node emits the remaining counter value every second (or minute if configured).
+    At the <b>first output</b> the node can emit a <code>msg</code> with an arbitrary <code>msg.payload</code> contents at<br />
+    the start and end of the timer.<br /><br />
+    At the <b>second output</b> the node emits true and false values when the timer starts and ends. During the count, <br />
+    the remaining time is output every second. The outout will be in seconds or minutes according to the related node<br />
+    setting in the GUI.
     </p>
     <p>
-    The node's output <code>msg</code> can optionally contain an arbitrary topic string.
+    The node's output <code>msg</code> can optionally contain an arbitrary topic string.<br /><br />
+    This code is based on node-red-contrib-countdown-2 V1.4.2 by Marc, with bug fixes and<br />
+    enhancements, while retaining broad compatibility with that version.<br /><br />
+    Released under the MIT licence by linker3000 (Nigel Kendrick https://github.com/linker3000).<br /><br />
+    No warranties, use at your own risk etc.<br />
     </p>
 </script>
 
