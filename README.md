@@ -48,5 +48,5 @@ This version is highly compatible with countdown-2 v1.4.2 with the following cha
 
 # Change Log
 
-## 1.0.0
+## 1.5.0L
 - Code forked from countdown-2 and bug fixes + enhancements applied.
