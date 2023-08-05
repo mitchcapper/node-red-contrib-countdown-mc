@@ -46,12 +46,6 @@ This version is highly compatible with countdown-2 v1.4.2 with the following cha
       a new value set and the count started from this value rather than the one set in 
       the node's interface. 
 
-# TODO
-
-* Edit documentation
-* More testing
-* Upload demo flow
-  
 # Change Log
 
 ## 1.0.0
