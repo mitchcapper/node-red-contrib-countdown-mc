@@ -6,8 +6,6 @@ This code is based on node-red-contrib-countdown-2 by marc, see here for the gen
 
 https://github.com/marc-gist/node-red-contrib-countdown
 
-**JUL 2023: WORK IN PROGRESS. USE IN PRODUCTION AT YOUR OWN RISK**
-
 This version is highly compatible with countdown-2 v1.4.2 with the following changes and fixes:
 
 **Changes / Enhancements**
@@ -48,7 +46,7 @@ This version is highly compatible with countdown-2 v1.4.2 with the following cha
 
 # Change Log
 
-## 1.5.0L
+## 1.5.0L and 1.5.1L (minor text adjustment)
 - Code forked from countdown-2 and bug fixes + enhancements applied.
 
 # Original notes from Countdown-2 V1.4.2
