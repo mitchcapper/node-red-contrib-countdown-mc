@@ -1,5 +1,5 @@
 /*
- Countdown-3000 V1.5.1L 17-Jul-2023 by Linker3000
+ Countdown-3000 V1.5.1-L 17-Jul-2023 by Linker3000
   
  Based on node-red-contrib-countdown-2 V1.4.2 by Marc.
 
