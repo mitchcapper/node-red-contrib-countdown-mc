@@ -46,7 +46,7 @@ This version is highly compatible with countdown-2 v1.4.2 with the following cha
 
 # Change Log
 
-## 1.6L: 
+## 1.6.0: 
 
 - Fixed spurious 'true' output sent under some circumstances.
 - Clarified comments about STOP and START commands.

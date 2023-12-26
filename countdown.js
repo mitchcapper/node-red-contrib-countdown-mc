@@ -1,5 +1,5 @@
 /*
- Countdown-3000 V1.6L 26-Dec-2023 by Linker3000
+ Countdown-3000 V1.6.0 26-Dec-2023 by Linker3000
 
  Based on node-red-contrib-countdown-2 V1.4.2 by Marc.
 
@@ -13,7 +13,7 @@
 
 Changes:
 
-  V1.6L: 
+  V1.6.0: 
   
   * Fixed spurious 'true' output sent under some circumstances.
   * Clarified comments about STOP and START commands.
