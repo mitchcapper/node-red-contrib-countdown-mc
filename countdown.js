@@ -1,47 +1,54 @@
 /*
- Countdown-3000 V1.5.1-L 17-Jul-2023 by Linker3000
-  
+ Countdown-3000 V1.6L 26-Dec-2023 by Linker3000
+
  Based on node-red-contrib-countdown-2 V1.4.2 by Marc.
 
  Broad compatibility with the functions of countdown-2.
 
  No warranties, use at your own risk etc..
 
- No formal support. 
-  
+ No formal support.
+
  MIT Licence
+
+Changes:
+
+  V1.6L: 
   
- Fixes and changes/enhancements: 
-  
-  - STOP command works - payload can be '0', 'off', 'stop', false or 0.
+  * Fixed spurious 'true' output sent under some circumstances.
+  * Clarified comments about STOP and START commands.
+
+ Original fixes and changes/enhancements from countdown-2:
+
+  - STOP command fully evaluated - payload can be '0', 'off', 'stop', false or 0.
       -- Not case sensitive.
-  - START command works - payload can be '1', 'on', 'start', true or 1.
+  - START command fully evaluated - payload can be '1', 'on', 'start', true or 1.
       -- Not case sensitive.
   - Node output and node status messages are in seconds or minutes
     to match node config.
   - Countdown goes to zero.
   - Minor syntax changes and code tidies.
-  - "control" input is now case insensitive and can be a number or 
+  - "control" input is now case insensitive and can be a number or
       string with or without a sign:
-    - If the input is a plain number, the current countdown is set to 
+    - If the input is a plain number, the current countdown is set to
       that number (in minutes or seconds according to node setting).
-    - If the number is a negative integer (eg -10), a string with a plus or 
-      minus sign (eg: "+12" or "-12") OR the number is a string or decimal fraction 
-      (eg: 10.1 or "10.1" or -10.1 etc) the countdown is increased or decreased by that 
+    - If the number is a negative integer (eg -10), a string with a plus or
+      minus sign (eg: "+12" or "-12") OR the number is a string or decimal fraction
+      (eg: 10.1 or "10.1" or -10.1 etc) the countdown is increased or decreased by that
       (truncated) amount (fraction part is discarded). Note that a positive integer
       input with a sign (eg: +10) is treated by javascript as plain old 10, so you can't
-      use that method to add amounts to the count; use a fraction or make it a 
+      use that method to add amounts to the count; use a fraction or make it a
       string (eg: 30.1 or "+30").
-    - "PAUSE" will pause the countdown. The node will still output its current (paused) 
+    - "PAUSE" will pause the countdown. The node will still output its current (paused)
       value every second. The countdown will resume with the next pause input (in effect,
-      'pause' toggles the counter), or if the countdown value is changed as above. 
-      The 'PRELOAD' command will restart a count at the current set value (provided it's 
-      not zero and the count is not currently running). This allows a count to be stopped, 
-      a new value set and the count started from this value rather than the one set in 
-      the node's interface. 
+      'pause' toggles the counter), or if the countdown value is changed as above.
+      The 'PRELOAD' command will restart a count at the current set value (provided it's
+      not zero and the count is not currently running). This allows a count to be stopped,
+      a new value set and the count started from this value rather than the one set in
+      the node's interface.
 
     If any action makes the countdown zero or negative, it will be stopped at zero.
-     
+
 */
 
 module.exports = function(RED) {
@@ -191,13 +198,13 @@ module.exports = function(RED) {
                       fill: "green",
                       shape: "dot",
                       text: timerremain(secs)
-                   }) 
+                   })
                 } else {
                       node.status({
                       fill: "yellow",
                       shape: "ring",
                       text: "Paused: " + timerremain(secs)
-                   }) 
+                   })
                 };
 
             } else if (secs <= 1) {
@@ -290,20 +297,16 @@ module.exports = function(RED) {
                         };
                     }
                 }
-                if (ticker) {
-                    if (node.config.resetWhileRunning) {
-                        endTicker();
-                        startTimer(false);
-                    }
-                } else {
+                if (ticker && node.config.resetWhileRunning) {
+                    endTicker();
                     startTimer(false);
                 }
-                if (msg.payload === false || msg.payload === 0 || (msg.payload + "").toLowerCase() === "off" 
+                if (msg.payload === false || msg.payload === 0 || (msg.payload + "").toLowerCase() === "off"
                      || (msg.payload + "").toLowerCase() === "stop" || (msg.payload + "") === "0") {
                     stopTimer();
-                } 
+                }
                 else {
-                  if (msg.payload === true || msg.payload === 1 || (msg.payload + "").toLowerCase() === "on" 
+                  if (msg.payload === true || msg.payload === 1 || (msg.payload + "").toLowerCase() === "on"
                      || (msg.payload + "").toLowerCase() === "start" || (msg.payload + "") === "1") {
                     startTimer(false);
                    }

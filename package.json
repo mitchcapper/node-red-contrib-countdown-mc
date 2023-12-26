@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-countdown-3000",
-  "version": "1.5.1L",
+  "version": "1.6L",
   "description": "A countdown that supports dynamic setting of (future) run time and stopping with or without payload output",
   "main": "countdown.js",
   "scripts": {},
@@ -10,7 +10,7 @@
     "countdown",
     "timer",
     "timeout",
-    "stop timer"
+    "stop timmer"
   ],
   "author": "Linker3000",
   "license": "MIT",

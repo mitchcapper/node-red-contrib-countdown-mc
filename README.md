@@ -10,9 +10,9 @@ This version is highly compatible with countdown-2 v1.4.2 with the following cha
 
 **Changes / Enhancements**
 
-  - **STOP** command works - payload can be '0', 'off', 'stop', false or 0.
+  - **STOP** command fully evaluated - payload can be '0', 'off', 'stop', false or 0.
       -- Not case sensitive.
-  - **START** command works - payload can be '1', 'on', 'start', true or 1.
+  - **START** command fully evaluated - payload can be '1', 'on', 'start', true or 1.
       -- Not case sensitive.
      - Start will also cancel a paused count and begin again at the value set in
          the node's GUI interface. If you want to modify the count's start value,
@@ -45,6 +45,11 @@ This version is highly compatible with countdown-2 v1.4.2 with the following cha
       the node's interface. 
 
 # Change Log
+
+## 1.6L: 
+
+- Fixed spurious 'true' output sent under some circumstances.
+- Clarified comments about STOP and START commands.
 
 ## 1.5.0L and 1.5.1-L (minor text adjustment)
 - Code forked from countdown-2 and bug fixes + enhancements applied.
