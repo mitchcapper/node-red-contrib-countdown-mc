@@ -1,5 +1,5 @@
 /*
- Countdown-3000 V1.6.0 26-Dec-2023 by Linker3000
+ Countdown-mc V2.0.0 29-Aug-2025 by Linker3000, Mitch Capper & contributors
 
  Based on node-red-contrib-countdown-2 V1.4.2 by Marc.
 
@@ -13,8 +13,26 @@
 
 Changes:
 
-  V1.6.0: 
-  
+  V2.0.0:
+
+  * Added milliseconds support for more precise timing
+  * Added hours support for longer time spans
+  * Added high precision option with 100ms updates for any time unit
+  * Fixed issue with startCountdownOnControlMessage not using the payload time
+  * Improved UI with dropdown for time unit selection (milliseconds, seconds, minutes, hours)
+  * Replaced separate checkboxes with a single dropdown for cleaner interface
+  * Reordered dropdown options from smallest to largest time unit
+  * Enhanced description for setTimeToNewWhileRunning option for better clarity
+  * Standardized time display format to show hours, minutes and seconds as appropriate
+  * Added one decimal place precision for time display when in high precision mode
+  * Added configurable property input using standard Node-RED property selector
+  * Added option to treat any message with a numeric value in the configured property
+    as a control message (without requiring "control" topic)
+  * Fixed issue with countdown sometimes showing negative values
+
+
+  V1.6.0:
+
   * Fixed spurious 'true' output sent under some circumstances.
   * Clarified comments about STOP and START commands.
 
@@ -59,13 +77,30 @@ module.exports = function(RED) {
         var node = this;
         node.config = config;
 
+        // Handle migration from checkbox-based settings to dropdown
+        if (config.timeUnit === undefined) {
+            if (config.minuteCounter) {
+                node.config.timeUnit = "minutes";
+            } else {
+                node.config.timeUnit = "seconds";
+            }
+        }
+        if (! config.property ) {
+            node.config.property = "payload";
+            node.config.propertyType = "msg";
+        }
+        if (config.allMessagesWithInputDelayAreControl === undefined) {
+            node.config.allMessagesWithInputDelayAreControl = false;
+        }
+
         // Local variables
         var ticker = null;
         var secs = -1;
+        var timeUnit = node.config.timeUnit;
         var timeout = timeRebase(parseInt(node.config.timer));
-        var timeinmins = node.config.minuteCounter;
         var timerPaused = false;
         var stopMsg = {};
+        var tickInterval = node.config.highPrecision ? 100 : 1000; // Default tick in milliseconds
 
         this.status({
             fill: "red",
@@ -74,28 +109,50 @@ module.exports = function(RED) {
         });
 
         function timeRebase(timeinsecs) {
-            if (timeinmins) {
-                return (timeinsecs * 60);
-            } else {
-                return timeinsecs;
+            switch(timeUnit) {
+                case "milliseconds":
+                    // If in milliseconds mode, convert to seconds for internal handling
+                    return (timeinsecs / 1000);
+                case "minutes":
+                    // If in minutes mode, convert to seconds for internal handling
+                    return (timeinsecs * 60);
+                case "hours":
+                    // If in hours mode, convert to seconds for internal handling
+                    return (timeinsecs * 3600);
+                default:
+                    // Default is seconds
+                    return timeinsecs;
             }
         }
 
         function timerremain(secs) {
-            var t = secs;
+            var displayValue;
 
-            if (timeinmins) {
-                t = Math.floor(secs / 60) + ":" + (secs % 60).toString().padStart(2, '0');
-            }
-
-            var ret = t;
-            if (timeinmins) {
-                ret = ret + " min";
+            // Prepare the seconds display format - decimal only for high precision when under 60 seconds
+            var secondsDisplay;
+            if (node.config.highPrecision && secs < 60) {
+                secondsDisplay = secs.toFixed(1) + "s";
             } else {
-                ret = ret + " sec";
+                secondsDisplay = Math.floor(secs % 60) + "s";
             }
-            if (timerPaused) {ret = ret + " paused";}
-            return ret;
+
+            // Format time according to the standardized format
+            if (secs >= 3600) {
+                // More than 60 minutes: show hours, minutes and seconds
+                var hours = Math.floor(secs / 3600);
+                var minutes = Math.floor((secs % 3600) / 60);
+                displayValue = hours + "h " + minutes + "m " + secondsDisplay;
+            } else if (secs >= 60) {
+                // More than 60 seconds: show minutes and seconds
+                var minutes = Math.floor(secs / 60);
+                displayValue = minutes + "m " + secondsDisplay;
+            } else {
+                // Less than 60 seconds: show seconds only
+                displayValue = secondsDisplay;
+            }
+
+            if (timerPaused) {displayValue = displayValue + " paused";}
+            return displayValue;
         }
 
         function startTimer(preload) {
@@ -112,62 +169,57 @@ module.exports = function(RED) {
                 text: 'Running:' + timerremain(secs)
             });
 
-            // Timer Message
-            var msg = {}
-            msg.payload = RED.util.evaluateNodeProperty(node.config.payloadTimerStart, node.config.payloadTimerStartType, node);
-            if (node.config.topic !== '') {
-                msg.topic = node.config.topic;
-            }
-
-            // only send stop msg if type is not equal "send nothing" option
+			// only send start msg if type is not equal "send nothing" option
             if (node.config.payloadTimerStartType !== "nul") {
+				// Timer Message
+				var msg = {}
+				msg.payload = RED.util.evaluateNodeProperty(node.config.payloadTimerStart, node.config.payloadTimerStartType, node);
+				if (node.config.topic !== '') {
+					msg.topic = node.config.topic;
+				}
                 node.send([msg, null]);
             }
 
             if (!ticker) {
+                // Use tickInterval variable that we've already defined earlier in the code
                 ticker = setInterval(function() {
                     node.emit("TIX");
-                }, 1000);
+                }, tickInterval);
             }
         }
 
         function stopTimer(output = true) {
-            var tOutMsg = timeout + " sec";
-            if (timeinmins) {
-                tOutMsg = parseInt(node.config.timer) + " min";
-            }
             node.status({
                 fill: "red",
                 shape: "dot",
-                text: "Stopped: " + tOutMsg
+                text: "Stopped: " + timerremain(timeRebase(parseInt(node.config.timer)))
             });
 
-            // Timer Message
-            var msg = {}
-            var cancel = false;
-            if (output) {
-                if (node.config.payloadTimerStopType === 'msg') {
-                    msg = stopMsg;
-                } else {
-                    msg.payload = RED.util.evaluateNodeProperty(node.config.payloadTimerStop, node.config.payloadTimerStopType, node);
-                }
-                if (node.config.topic !== '') {
-                    msg.topic = node.config.topic;
-                }
-            } else {
-                msg = null;
-                cancel = true;
-            }
+			// Timer Message
+			// only send stop msg if type is not equal "send nothing" option
+            if (node.config.payloadTimerStopType !== "nul") {
+				var msg = {}
+				var cancel = false;
+				if (output) {
+					if (node.config.payloadTimerStopType === 'msg') {
+						msg = stopMsg;
+					} else {
+						msg.payload = RED.util.evaluateNodeProperty(node.config.payloadTimerStop, node.config.payloadTimerStopType, node);
+					}
+					if (node.config.topic !== '') {
+						msg.topic = node.config.topic;
+					}
+				} else {
+					msg = null;
+					cancel = true;
+				}
 
-            var remainingsecsMsg = {
-                "payload": timerremain(0),
-                "cancled": cancel
-            };
+				var remainingsecsMsg = {
+					"payload": timerremain(0),
+					"cancled": cancel
+				};
 
-            // only send stop msg if type is not equal "send nothing" option
-            if (node.config.payloadTimerStopType == "nul") {
-                node.send([null, remainingsecsMsg]);
-            } else {
+
                 node.send([msg, remainingsecsMsg]);
             }
 
@@ -184,13 +236,22 @@ module.exports = function(RED) {
         }
 
         node.on("TIX", function() {
-            if (secs > 1) {
-                if (!timerPaused) {secs--;}
-
-                var remainingsecsMsg = {
-                    "payload": timerremain(secs)
-                };
-                node.send([null, remainingsecsMsg]);
+            if (secs > 0.1) {
+                if (!timerPaused) {
+                    if (node.config.highPrecision) {
+                        secs -= 0.1; // Decrement by 0.1 for high precision mode
+                    } else {
+                        secs -= 1; // Standard 1 second decrement
+                    }
+                }
+				if (secs < 0) {
+					secs = 0;
+				} else { // we don't need to send a payload message if secs is zero as we will automatically send it in the stopTimer that will execute next
+					var remainingsecsMsg = {
+						"payload": timerremain(secs)
+					};
+					node.send([null, remainingsecsMsg]);
+				}
 
                 // update Running status message
                 if (!timerPaused) {
@@ -207,7 +268,7 @@ module.exports = function(RED) {
                    })
                 };
 
-            } else if (secs <= 1) {
+            } else if (secs <= 0.1) {
                 stopTimer();
                 secs = 0;
 
@@ -217,14 +278,27 @@ module.exports = function(RED) {
         });
 
         node.on("input", function(msg) {
-            if (msg.topic === "control") {
+            // Get property based on configuration
+            var property = "payload";
+            if (node.config.propertyType === "msg") {
+                property = node.config.property || "payload";
+            } else if (node.config.propertyType) {
+                try {
+                    property = RED.util.evaluateNodeProperty(node.config.property, node.config.propertyType, node);
+                } catch(err) {
+                    node.warn("Property expression error: " + err.message);
+                    property = "payload";
+                }
+            }
 
-                if (!isNaN(msg.payload)) { //Strings containing valid number are 'numbers'...
+            if (msg.topic === "control" || (node.config.allMessagesWithInputDelayAreControl && ! isNaN(msg[property]) ) ) {
+
+                if (!isNaN(msg[property])) { //Strings containing valid number are 'numbers'...
 
                     var numberValue = 0;
 
-                    if (typeof msg.payload === 'string') {
-                        const cleanedInput = msg.payload.trim();
+                    if (typeof msg[property] === 'string') {
+                        const cleanedInput = msg[property].trim();
                         var signedString = false;
 
                         if (cleanedInput.startsWith('+') || cleanedInput.startsWith('-')) {
@@ -233,7 +307,7 @@ module.exports = function(RED) {
                         }
 
                     } else { //Input is a true number
-                        numberValue = msg.payload;
+                        numberValue = msg[property];
                     }
 
                     if ((Number.isInteger(+numberValue) && (numberValue > 0)) && !signedString) {
@@ -259,7 +333,9 @@ module.exports = function(RED) {
                     } else {
                         // countdown is stopped
                         if (node.config.startCountdownOnControlMessage) {
-                            startTimer(false);
+                            // Fix: use the timeout value from control message when starting
+                            secs = timeout;
+                            startTimer(true);
                         } else {
                             node.status({
                                 fill: "red",
@@ -270,17 +346,20 @@ module.exports = function(RED) {
 
                     }
                 } else {
-                    if (msg.payload.toLowerCase() === "cancel") {
-                        stopTimer(false);
-                    }
-                    if (msg.payload.toLowerCase() === "reset") {
-                        startTimer(false);
-                    }
-                     if (msg.payload.toLowerCase() === "pause") {
-                        timerPaused = !timerPaused;
-                    }
-                    if ((msg.payload.toLowerCase() === "preload")  && (secs > 0) && (!ticker)) {
-                        startTimer(true);
+                    if (msg[property] && typeof msg[property] === 'string') {
+                        const cmd = msg[property].toLowerCase();
+                        if (cmd === "cancel") {
+                            stopTimer(false);
+                        }
+                        if (cmd === "reset") {
+                            startTimer(false);
+                        }
+                        if (cmd === "pause") {
+                            timerPaused = !timerPaused;
+                        }
+                        if (cmd === "preload" && (secs > 0) && (!ticker)) {
+                            startTimer(true);
+                        }
                     }
                 }
             } else {
@@ -301,13 +380,13 @@ module.exports = function(RED) {
                     endTicker();
                     startTimer(false);
                 }
-                if (msg.payload === false || msg.payload === 0 || (msg.payload + "").toLowerCase() === "off"
-                     || (msg.payload + "").toLowerCase() === "stop" || (msg.payload + "") === "0") {
+                if (msg[property] === false || msg[property] === 0 || (msg[property] + "").toLowerCase() === "off"
+                     || (msg[property] + "").toLowerCase() === "stop" || (msg[property] + "") === "0") {
                     stopTimer();
                 }
                 else {
-                  if (msg.payload === true || msg.payload === 1 || (msg.payload + "").toLowerCase() === "on"
-                     || (msg.payload + "").toLowerCase() === "start" || (msg.payload + "") === "1") {
+                  if (msg[property] === true || msg[property] === 1 || (msg[property] + "").toLowerCase() === "on"
+                     || (msg[property] + "").toLowerCase() === "start" || (msg[property] + "") === "1") {
                     startTimer(false);
                    }
                 }

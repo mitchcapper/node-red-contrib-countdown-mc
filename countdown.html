@@ -1,5 +1,57 @@
 <script type="text/x-red" data-template-name="countdown">
   <div class="form-row">
+      <label for="node-input-name"><i class="fa fa-tag"></i> <span data-i18n="node-red:common.label.name"></span></label>
+      <input type="text" id="node-input-name" data-i18n="[placeholder]node-red:common.label.name">
+  </div>
+  <div class="form-row">
+    <label for="node-input-timer"><i class="fa fa-clock-o"></i> Countdown </label>
+    <input style="width:15%" type="text" id="node-input-timer" placeholder="30">
+    <select id="node-input-timeUnit" style="width:30%; margin-left:5px;">
+      <option value="milliseconds">Milliseconds</option>
+      <option value="seconds">Seconds</option>
+      <option value="minutes">Minutes</option>
+      <option value="hours">Hours</option>
+    </select>
+  </div>
+
+  <div class="form-row">
+    <label for="node-input-resetWhileRunning">&nbsp;</label>
+    <input style="display:inline-block; width:15px; vertical-align:baseline;" type="checkbox" id="node-input-resetWhileRunning">
+    <span>Restart countdown if message is received while running</span>&nbsp;
+  </div>
+
+  <div class="form-row">
+    <label for="node-input-setTimeToNewWhileRunning">&nbsp;</label>
+    <input style="display:inline-block; width:15px; vertical-align:top;" type="checkbox" id="node-input-setTimeToNewWhileRunning">
+    <span style="display:inline-block; width:70%">Set time to new duration if control message is received while running. If unchecked, new time values will only be applied when the timer is not running.</span>&nbsp;
+  </div>
+
+  <div class="form-row">
+    <label for="node-input-startCountdownOnControlMessage">&nbsp;</label>
+    <input style="display:inline-block; width:15px; vertical-align:top;" type="checkbox" id="node-input-startCountdownOnControlMessage">
+    <span style="display:inline-block; width:70%">Start countdown if control message is received while not running</span>&nbsp;
+  </div>
+
+  <div class="form-row">
+    <label for="node-input-highPrecision">&nbsp;</label>
+    <input style="display:inline-block; width:15px; vertical-align:top;" type="checkbox" id="node-input-highPrecision">
+    <span style="display:inline-block; width:70%">Use high precision timer with 100ms updates (instead of 1 second)</span>&nbsp;
+  </div>
+  <div class="form-row">
+    <label for="node-input-allMessagesWithInputDelayAreControl">&nbsp;</label>
+    <input style="display:inline-block; width:15px; vertical-align:top;" type="checkbox" id="node-input-allMessagesWithInputDelayAreControl">
+    <span style="display:inline-block; width:70%">All messages with delay property set to a number are treated as control messages</span>&nbsp;
+  </div>
+
+  <div class="form-row">
+    <label for="node-input-property"><i class="fa fa-ellipsis-h"></i> <span>Delay Property (optional)</span></label>
+    <input type="text" id="node-input-property" style="width: 50%;">
+    <input type="hidden" id="node-input-propertyType">
+  </div>
+
+<fieldset>
+  <legend>Output Message Settings:</legend>
+  <div class="form-row">
       <label for="node-input-topic"><i class="fa fa-tasks"></i> <span data-i18n="node-red:common.label.topic"></span></label>
       <input type="text" id="node-input-topic">
   </div>
@@ -15,75 +67,48 @@
     <input style="width:70%" type="text" id="node-input-payloadTimerStop">
     <input type="hidden" id="node-input-payloadTimerStopType">
   </div>
-
-  <div class="form-row">
-    <label for="node-input-timer"><i class="fa fa-clock-o"></i> Countdown </label>
-    <input style="width:15%" type="text" id="node-input-timer" placeholder="30">
-  </div>
-  <div class="form-row">
-    <label for="node-input-minuteCounter">&nbsp;</label>
-    <input style="display:inline-block; width:15px; vertical-align:baseline;" type="checkbox" id="node-input-minuteCounter">
-    <span>Counter is in Minutes (checked.  Default is Seconds)</span>&nbsp;
-  </div>
-
-  <div class="form-row">
-    <label for="node-input-resetWhileRunning">&nbsp;</label>
-    <input style="display:inline-block; width:15px; vertical-align:baseline;" type="checkbox" id="node-input-resetWhileRunning">
-    <span>Restart countdown if message is received while running</span>&nbsp;
-  </div>
-
-  <div class="form-row">
-    <label for="node-input-setTimeToNewWhileRunning">&nbsp;</label>
-    <input style="display:inline-block; width:15px; vertical-align:top;" type="checkbox" id="node-input-setTimeToNewWhileRunning">
-    <span style="display:inline-block; width:70%">Set time to new duration if control message is received while running</span>&nbsp;
-  </div>
-
-  <div class="form-row">
-    <label for="node-input-startCountdownOnControlMessage">&nbsp;</label>
-    <input style="display:inline-block; width:15px; vertical-align:top;" type="checkbox" id="node-input-startCountdownOnControlMessage">
-    <span style="display:inline-block; width:70%">Start countdown if control message is received while not running</span>&nbsp;
-  </div>
-
-  <div class="form-row">
-      <label for="node-input-name"><i class="fa fa-tag"></i> <span data-i18n="node-red:common.label.name"></span></label>
-      <input type="text" id="node-input-name" data-i18n="[placeholder]node-red:common.label.name">
-  </div>
-
+</fieldset>
 </script>
 
 <script type="text/x-red" data-help-name="countdown">
 <p>
-  Countdown-3000 - A simple countdown node. It starts countdown on any input. The countdown timer can be stopped immediately or can be reloaded with a 
+  Countdown-mc - A simple countdown node. It starts countdown on any input. The countdown timer can be stopped immediately or can be reloaded with a
   new counter value while it running.
 </p>
 
   <h3>Input</h3>
 
+  <h4>Property</h4>
+  <p>By default, the node listens to <code>msg.payload</code>, but you can configure it to use any message property, flow context property, or global context property. The following documentation uses "property" to refer to whichever input property you've configured.</p>
+
+  <h4>All Messages With Delay Are Control</h4>
+  <p>When enabled, any message with a numeric value in the configured property will be treated as a control message, even without the "control" topic. This allows for simpler countdown control when using delay values.</p>
+
   <h4>Starting the timer</h4>
   <dl class="message-properties">
-      <dt>payload
+      <dt>property
           <span class="property-type"></span>
       </dt>
-      <dd>any <code>msg.payload</code> that does not stop the timer or reload the timer starts the timer.</dd>
+      <dd>any input value that does not stop the timer or reload the timer starts the timer.</dd>
   </dl>
 
 
  <h4>Starting the timer (formal values - see above too)</h4>
     <dl class="message-properties">
-        <dt>payload
+        <dt>property
             <span class="property-type">boolean | number</span>
         </dt>
         <dd>if <code>true</code> or <code>1</code> or <code>start</code> or <code>on</code>: Immediately starts the timer and sends output as per configuration </dd>
     </dl>
- 
+
   <h4>Stopping the timer</h4>
     <dl class="message-properties">
-        <dt>payload
+        <dt>property
             <span class="property-type">boolean | number</span>
         </dt>
         <dd>if <code>false</code> or <code>0</code> or <code>stop</code> or <code>off</code>: Immediately stops the timer and sends output as per configuration </dd>
     </dl>
-    
+
   <h4><B>Cancelling or reloading the timer and alternative stop and start methods</B></h4>
     <P>For all the commands below, the message topic is set to <code><B>control</B></code>. Values are NOT case sensitive.<br /></P>
     <dl class="message-properties">
@@ -105,7 +130,7 @@
             <span class="property-type">string</span>
         </dt>
         <dd>Payload = <code>preload</code>: Timer restarts using the currently set count value.<br /><br /></dd>
-        <P>The 'preload' command will restart a count at the current set value provided the<br /> 
+        <P>The 'preload' command will restart a count at the current set value provided the<br />
            value is not zero and the count is NOT currently running.<br /></P>
     </dl>
 
@@ -114,7 +139,7 @@
             <span class="property-type">string</span>
         </dt>
         <dd>Payload = <code>pause</code>: Timer countdown is paused.<br /><br /></dd>
-        <P>While the timer is paused, the node will still output the current<br /> 
+        <P>While the timer is paused, the node will still output the current<br />
            (paused) countdown value every second.<br /></P>
     </dl>
 
@@ -122,14 +147,14 @@
     <P>The timer can be loaded with a new value at any time as below. To override the GUI set<br />
        value, stop or cancel the counter, set a new value and then start the counter with the 'preload' command.<br /></P>
     <dl class="message-properties">
-        <dt>payload
+        <dt>property
             <span class="property-type">number | string</span>
         </dt>
         <dd>
-          if <code>Number</code>: reloads the timer with the desired <code>msg.payload</code> value.<br />
-          if <code>Negative integer</code>: Timer will subtract the <code>msg.payload</code> value from the current countdown.<br />
-          if <code>Signed string</code>: timer will add or subtract the <code>msg.payload</code> value from the current countdown.<br />
-          if <code>Positive or negative number with fraction</code>: timer will add or subtract the <code>msg.payload</code><br >
+          if <code>Number</code>: reloads the timer with the desired value.<br />
+          if <code>Negative integer</code>: Timer will subtract the value from the current countdown.<br />
+          if <code>Signed string</code>: timer will add or subtract the value from the current countdown.<br />
+          if <code>Positive or negative number with fraction</code>: timer will add or subtract the<br >
           whole number part from the current countdown. Examples: -10.1, 12.2, "-3.4", "11.2"<br /><br /></dd>
           <p>Numbers can be input as integers, numbers with fractional parts or strings in number format. The<br />
              only exception is integers with a positive sign (eg: +12), where the sign is ignored.<br />
@@ -150,10 +175,10 @@
         <li>Second output
             <dl class="message-properties">
                 <dt>payload <span class="property-type">number</span></dt>
-                <dd>Outputs the remaining time scaled to seconds or minutes depending on the node's setting in the GUI.<br >
+                <dd>Outputs the remaining time in the selected time unit (milliseconds, seconds, minutes, or hours) based on the dropdown selection.<br >
                 Also outputs <code>true</code> when the counter starts and <code>false</code> when the counter reaches zero.<br /><br />
-                The first counter numeric value is output 1 second after the count starts, so if the node is set to count from<br />
-                25 seconds, the first output is 24. The last counter output is 0.<br /></dd>
+                The first counter numeric value is output shortly after the count starts. The last counter output is 0.<br />
+                If milliseconds mode is selected or high precision option is checked, updates happen every 100ms for more precision.<br /></dd>
             </dl>
         </li>
     </ol>
@@ -161,7 +186,7 @@
 
   <h3>Details</h3>
     <p>
-    <code>node-red-contrib-countdown-3000 </code> starts a countdown timer on a received input
+    <code>node-red-contrib-countdown-mc </code> starts a countdown timer on a received input
     <code>msg</code> and decreases the counter value until the countdown timer elapses.
     The countdown can be stopped at any time.The countdown timer can be set to a new<br />
     countdown value at any time to restart the timer with a specific value.
@@ -170,15 +195,18 @@
     At the <b>first output</b> the node can emit a <code>msg</code> with an arbitrary <code>msg.payload</code> contents at<br />
     the start and end of the timer.<br /><br />
     At the <b>second output</b> the node emits true and false values when the timer starts and ends. During the count, <br />
-    the remaining time is output every second. The outout will be in seconds or minutes according to the related node<br />
-    setting in the GUI.
+    the remaining time is output every second (or every 100ms if high precision is enabled).<br /><br />
+    The time display format is standardized to be user-friendly regardless of the configured time unit:<br />
+    - Less than 60 seconds: shown in seconds (e.g., "45s")<br />
+    - Between 60 seconds and 60 minutes: shown as minutes and seconds (e.g., "2m 30s")<br />
+    - More than 60 minutes: shown as hours, minutes, seconds (e.g., "1h 15m 30s")<br />
+    <br />
+    When high precision mode is enabled, seconds are shown with one decimal place (e.g., "10.5s" or "2m 30.5s").
     </p>
     <p>
     The node's output <code>msg</code> can optionally contain an arbitrary topic string.<br /><br />
-    This code is based on node-red-contrib-countdown-2 V1.4.2 by Marc, with bug fixes and<br />
-    enhancements, while retaining broad compatibility with that version.<br /><br />
-    Released under the MIT licence by linker3000 (Nigel Kendrick https://github.com/linker3000).<br /><br />
-    No warranties, use at your own risk etc.<br />
+    This code is based on node-red-contrib-countdown-2 V1.4.2 by Marc and countdown 3000 by Nigel Kendrick https://github.com/linker3000/node-red-contrib-countdown-3000, with bug fixes and<br />
+    enhancements, while retaining broad compatibility with those versions.<br /><br />
     </p>
 </script>
 
@@ -187,7 +215,7 @@
     category: "function",
     color:"#ffaaaa",
     inputLabels: "Any input starts the timer",
-    outputLabels: ["Countdown start/stop messages", "Remaining time in seconds"],
+    outputLabels: ["Countdown start/stop messages", "Remaining time formatted"],
     defaults: {
       name: { value: "" },
       topic: { value: "" },
@@ -199,7 +227,13 @@
       resetWhileRunning: { value: false },
       setTimeToNewWhileRunning: { value: true },
       startCountdownOnControlMessage: { value: false },
-      minuteCounter: { value: false }
+      highPrecision: { value: false }, // High precision timer with 100ms updates
+      timeUnit: { value: "seconds" }, // Keep seconds as the default value
+      property: { value: "payload" },
+      propertyType: { value: "msg" },
+      allMessagesWithInputDelayAreControl: { value: false }, // New option for handling messages with delay property
+      // Keep these for backwards compatibility
+      minuteCounter: { value: false },
     },
     inputs: 1,
     outputs: 2,
@@ -223,6 +257,22 @@
         default: 'bool',
         typeField: $("#node-input-payloadTimerStopType"),
         types: ['msg','str','num','bool','json','bin','re','date','env', optionNothing]
+      });
+
+      // Handle migration from checkbox settings to dropdown
+      if (this.timeUnit === undefined) {
+				if (this.minuteCounter) {
+          $('#node-input-timeUnit').val('minutes');
+        } else {
+          $('#node-input-timeUnit').val('seconds');
+        }
+      }
+
+      // Setup property type selector
+      $('#node-input-property').typedInput({
+        default: 'msg',
+        typeField: $("#node-input-propertyType"),
+        types: ['msg', 'flow', 'global']
       });
     }
   });

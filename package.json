@@ -1,6 +1,6 @@
 {
-  "name": "node-red-contrib-countdown-3000",
-  "version": "1.6.0",
+  "name": "node-red-contrib-countdown-mc",
+  "version": "2.0.0",
   "description": "A countdown that supports dynamic setting of (future) run time and stopping with or without payload output",
   "main": "countdown.js",
   "scripts": {},
@@ -12,7 +12,7 @@
     "timeout",
     "stop timer"
   ],
-  "author": "Linker3000",
+  "author": "Mitch Capper",
   "license": "MIT",
   "node-red": {
     "nodes": {
@@ -21,14 +21,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/linker3000/node-red-contrib-countdown-3000.git"
+    "url": "git+https://github.com/mitchcapper/node-red-contrib-countdown-mc.git"
   },
-  "homepage": "https://github.com/linker3000/node-red-contrib-countdown-3000#readme",
+  "homepage": "https://github.com/mitchcapper/node-red-contrib-countdown-mc#readme",
   "dependencies": {
     "is-number": "^7.0.0"
   },
   "bugs": {
-    "url": "https://github.com/linker3000/node-red-contrib-countdown-3000/issues"
+    "url": "https://github.com/mitchcapper/node-red-contrib-countdown-mc/issues"
   },
   "directories": {
     "example": "examples"
