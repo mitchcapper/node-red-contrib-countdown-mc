@@ -36,6 +36,10 @@ This version is highly compatible with countdown-2 v1.4.2 and countdown-3000 wit
       input with a sign (eg: +10) is treated by javascript as plain old 10, so you can't
       use that method to add amounts to the count; use a fraction or make it a
       string (eg: 30.1 or "+30").
+    - **Leading Operators**: These follow the same gating as numeric values - send them with the `control` topic, or enable "All messages...as control" to use them without it.
+      - `>N`: Floor - if time is below N, set to N.
+      - `<N`: Ceiling - if time is above N, set to N.
+      - `*N`: Multiplier - instantly scales the active countdown by N. Subsequent time values are scaled by this factor. Set back to `*1` to clear.
     - **PAUSE** will pause the countdown. The node will still output its current (paused)
       value every second. The countdown will resume with the next pause input (in effect,
       'pause' toggles the counter), or if the countdown value is changed as above.
@@ -44,7 +48,17 @@ This version is highly compatible with countdown-2 v1.4.2 and countdown-3000 wit
       a new value set and the count started from this value rather than the one set in
       the node's interface.
 
+## Multiplier Detail
+Please not the multiplier feature is for advanced use cases only.   It acts to slow or speed up the countdown by a factor while still allowing said change to be easily reversible.  An example might be if you have an auto-off light timer that may turn off after a variable number of minutes.  You may want to slow down the timer while an occupancy sensor is tripped, without disabling it completely.
+
 # Change Log
+
+## 2.5.0:
+
+- Added multi-stream (per-topic) support to emulate the core trigger node tracking
+- Added leading comparison operators (>N floor, <N ceiling); gated the same as numeric values (control topic, or "All messages...as control")
+- Added a third output and configuration for a warning time threshold that emits raw numeric time
+- Added multiplier support (*N) to dynamically scale the active timer; same gating as numeric values.
 
 ## 2.0.0:
 
@@ -118,6 +132,7 @@ You can configure the timer to
 - activate the ability to **set the timer value** to an arbitrary value during the count down with the use of a control `msg`. If this option is not checked, new time values will only be applied when the timer is not running.
 - **start the timer** with a control `msg` (i.e. a `msg` with a *control* topic string).
 - use **high precision** timer with 100ms updates instead of the standard 1-second updates (milliseconds mode always uses 100ms updates regardless of this setting).
+- **treat messages as separate streams** using the Handling option. When set to 'each separate message', you can specify a property (like `msg.topic`) to run independent timers, multipliers, and warnings concurrently for each stream.
 
 #### Property
 By default, the node uses `msg.payload` for input values. You can configure it to use a different message property by setting the **Property** field. For example, you could set it to read from `msg.time` instead of `msg.payload`. This property can be selected from the message object, flow context, or global context.
@@ -133,9 +148,10 @@ The node evaluates the following input types:
 - See Node configuration for `control` topic options to `cancel` the timer.
 
 ## Outputs
-The node contains two outputs:
+The node contains three outputs:
 - The **primary output** (upper output) emits an output `msg` at the **countdown start/stop** instant of time. These `msg.payload` contents are configurable.
-- The **secondary output** (lower output) emits the **remaining time every second** (or every 100ms if high precision is enabled) during the timer run.
+- The **secondary output** (middle output) emits the **remaining time every second** (or every 100ms if high precision is enabled) during the timer run.
+- The **third output** (lower output) is a **warning trigger**. It emits the raw numeric remaining time when the countdown drops below the configured warning threshold. It fires once per crossing.
 
 The output format for the time display is standardized to be user-friendly regardless of the configured time unit:
 - Less than 60 seconds: shown in seconds (e.g., "45s")

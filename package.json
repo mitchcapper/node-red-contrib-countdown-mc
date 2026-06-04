@@ -1,6 +1,6 @@
 {
   "name": "@mitch.capper/node-red-contrib-countdown-mc",
-  "version": "2.1.0",
+  "version": "2.5.0",
   "description": "A countdown that supports dynamic setting of (future) run time and stopping with or without payload output",
   "main": "countdown.js",
   "scripts": {},

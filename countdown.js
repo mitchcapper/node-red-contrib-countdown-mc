@@ -13,14 +13,16 @@
 
 Changes:
 
-  V2.0.0:
   V2.1.0:
 
-  * Added leading comparison operators (>N, <N) for floor/ceiling limits
+  * Added multi-stream (per-topic) support: independent timers/multipliers/warnings per stream
+  * Added leading comparison operators (>N floor, <N ceiling) for the control input
   * Added multiplier support (*N) to scale the active timer
-  * Added warning output threshold option (outputs raw numeric time)
-  * Note: Operators/multipliers bypass control topic requirement.
+  * Added warning output (third output) with a configurable threshold; emits raw numeric time
+  * Note: operators (>N/<N) and multipliers (*N) follow the same gating as numeric values -
+    they require the "control" topic unless "All messages...as control" is enabled.
 
+  V2.0.0:
 
   * Added milliseconds support for more precise timing
   * Added hours support for longer time spans
@@ -102,31 +104,89 @@ module.exports = function(RED) {
 
         // Local variables
         var ticker = null;
-        var secs = -1;
         var timeUnit = node.config.timeUnit;
         var timeout = timeRebase(parseInt(node.config.timer));
-        var timerPaused = false;
-        var stopMsg = {};
-        var multiplier = 1;
-        var warned = false;
+        var streams = {};
+        var lastTriggeredStreamId = null;
         
-        function applyMultiplier(rebasedSecs) { return rebasedSecs * multiplier; }
-        
+        function getStream(id) {
+            if (!streams[id]) {
+                streams[id] = {
+                    secs: -1,
+                    timerPaused: false,
+                    multiplier: 1,
+                    warned: false,
+                    stopMsg: {}
+                };
+            }
+            return streams[id];
+        }
+
+        function applyMultiplier(rebasedSecs, stream) { return rebasedSecs * stream.multiplier; }
         function warningThresholdSecs() {
             var w = parseFloat(node.config.warningTime);
             return (isNaN(w) || w <= 0) ? null : timeRebase(w);
         }
         
-        function checkWarning() {
+        function checkWarning(stream, streamId) {
             var t = warningThresholdSecs();
             if (t === null) return;
-            if (secs > t) { warned = false; return; }
-            if (secs > 0 && !warned) {
-                warned = true;
-                var rawRemaining = Number((secs / timeRebase(1)).toFixed(2));
+            if (stream.secs > t) { stream.warned = false; return; }
+            if (stream.secs > 0 && !stream.warned) {
+                stream.warned = true;
+                var rawRemaining = Number((stream.secs / timeRebase(1)).toFixed(2));
                 var wmsg = { payload: rawRemaining };
-                if (node.config.topic !== '') wmsg.topic = node.config.topic;
+                if (node.config.handle === 'each' && node.config.streamProperty) {
+                    RED.util.setMessageProperty(wmsg, node.config.streamProperty, streamId);
+                } else if (node.config.topic !== '') wmsg.topic = node.config.topic;
                 node.send([null, null, wmsg]);
+            }
+        }
+        
+        function updateStatus() {
+            // Prefer the most recently triggered stream as the one shown, if it qualifies.
+            function pick(list) {
+                if (lastTriggeredStreamId !== null && list.indexOf(lastTriggeredStreamId) !== -1) {
+                    return streams[lastTriggeredStreamId];
+                }
+                return streams[list[0]];
+            }
+
+            // Nothing actually counts down unless the ticker is running. A stream can hold a
+            // value (secs > 0) while stopped - e.g. a delay set with auto-start off, awaiting a
+            // 'preload'/start. Show that as Stopped (with the loaded value), never as Running.
+            if (!ticker) {
+                var loaded = [];
+                for (var id in streams) { if (streams[id].secs > 0) loaded.push(id); }
+                if (loaded.length === 0) {
+                    node.status({ fill:"red", shape:"dot", text:"Stopped" });
+                } else {
+                    node.status({ fill:"red", shape:"dot", text:"Stopped: " + timerremain(pick(loaded).secs) });
+                }
+                return;
+            }
+
+            var running = [];   // counting down (not paused)
+            var paused = [];    // has time left but paused
+            for (var id in streams) {
+                if (streams[id].secs > 0) {
+                    if (streams[id].timerPaused) { paused.push(id); }
+                    else { running.push(id); }
+                }
+            }
+
+            if (running.length === 0 && paused.length === 0) {
+                node.status({ fill:"red", shape:"dot", text:"Stopped" });
+            } else if (running.length === 0) {
+                var ps = pick(paused);
+                node.status({ fill:"yellow", shape:"ring", text:"Paused: " + timerremain(ps.secs) });
+            } else if (running.length === 1) {
+                var rs = pick(running);
+                node.status({ fill:"green", shape:"dot", text:"Running: " + timerremain(rs.secs) });
+            } else {
+                // Only count actively-running streams in the total (excludes paused/stopped).
+                var rs2 = pick(running);
+                node.status({ fill:"green", shape:"dot", text:"Running: " + timerremain(rs2.secs) + " (" + running.length + " total streams)" });
             }
         }
         var tickInterval = node.config.highPrecision ? 100 : 1000; // Default tick in milliseconds
@@ -180,81 +240,94 @@ module.exports = function(RED) {
                 displayValue = secondsDisplay;
             }
 
-            if (timerPaused) {displayValue = displayValue + " paused";}
             return displayValue;
         }
 
-        function startTimer(preload) {
+        function startTimer(preload, stream, streamId) {
             if (!preload) {
                 timeout = timeRebase(parseInt(node.config.timer));
-                secs = timeout;
+                stream.secs = timeout;
             }
-            timerPaused = false;
-            warned = false;
-            checkWarning();
+            stream.timerPaused = false;
+            stream.warned = false;
+            checkWarning(stream, streamId);
 
-            // running status message
-            node.status({
-                fill: "green",
-                shape: "dot",
-                text: 'Running:' + timerremain(secs)
-            });
-
-			// only send start msg if type is not equal "send nothing" option
-            if (node.config.payloadTimerStartType !== "nul") {
-				// Timer Message
-				var msg = {}
-				msg.payload = RED.util.evaluateNodeProperty(node.config.payloadTimerStart, node.config.payloadTimerStartType, node);
-				if (node.config.topic !== '') {
-					msg.topic = node.config.topic;
-				}
-                node.send([msg, null]);
-            }
-
+            // Start ticking before updating status so the stream is genuinely counting down
+            // (updateStatus only reports "Running" when the ticker is active).
             if (!ticker) {
                 // Use tickInterval variable that we've already defined earlier in the code
                 ticker = setInterval(function() {
                     node.emit("TIX");
                 }, tickInterval);
             }
+
+            updateStatus();
+			// only send start msg if type is not equal "send nothing" option
+            if (node.config.payloadTimerStartType !== "nul") {
+                // Timer Message
+                var msg = {}
+                msg.payload = RED.util.evaluateNodeProperty(node.config.payloadTimerStart, node.config.payloadTimerStartType, node);
+                if (node.config.handle === 'each' && node.config.streamProperty) {
+                    RED.util.setMessageProperty(msg, node.config.streamProperty, streamId);
+                } else if (node.config.topic !== '') {
+                    msg.topic = node.config.topic;
+                }
+                node.send([msg, null]);
+            }
         }
 
-        function stopTimer(output = true) {
-            node.status({
-                fill: "red",
-                shape: "dot",
-                text: "Stopped: " + timerremain(timeRebase(parseInt(node.config.timer)))
-            });
-
-			// Timer Message
-			// only send stop msg if type is not equal "send nothing" option
+        function stopTimer(stream, streamId, output = true) {
+            // Timer Message
+            // only send stop msg if type is not equal "send nothing" option
             if (node.config.payloadTimerStopType !== "nul") {
-				var msg = {}
-				var cancel = false;
-				if (output) {
-					if (node.config.payloadTimerStopType === 'msg') {
-						msg = stopMsg;
-					} else {
-						msg.payload = RED.util.evaluateNodeProperty(node.config.payloadTimerStop, node.config.payloadTimerStopType, node);
-					}
-					if (node.config.topic !== '') {
-						msg.topic = node.config.topic;
-					}
-				} else {
-					msg = null;
-					cancel = true;
-				}
-
+                var msg = {}
+                var cancel = false;
+                if (output) {
+                    if (node.config.payloadTimerStopType === 'msg') {
+                        msg = stream.stopMsg;
+                    } else {
+                        msg.payload = RED.util.evaluateNodeProperty(node.config.payloadTimerStop, node.config.payloadTimerStopType, node);
+                    }
+                    if (node.config.handle === 'each' && node.config.streamProperty) {
+                        RED.util.setMessageProperty(msg, node.config.streamProperty, streamId);
+                    } else if (node.config.topic !== '') {
+                        msg.topic = node.config.topic;
+                    }
+                } else {
+                    msg = null;
+                    cancel = true;
+                }
 				var remainingsecsMsg = {
-					"payload": timerremain(0),
-					"cancled": cancel
-				};
-
-
+                    "payload": timerremain(0),
+                    "cancled": cancel
+                };
+                
+                if (node.config.handle === 'each' && node.config.streamProperty) {
+                    RED.util.setMessageProperty(remainingsecsMsg, node.config.streamProperty, streamId);
+                } else if (node.config.topic !== '') {
+                    remainingsecsMsg.topic = node.config.topic;
+                }
                 node.send([msg, remainingsecsMsg]);
             }
+            
+            stream.secs = -1;
+            stream.warned = false;
 
-            endTicker();
+            // Prune fully-idle streams to avoid unbounded growth in 'each' mode.
+            // Keep any stream holding a non-default multiplier so it persists (only *N changes it),
+            // and keep paused streams so they can be resumed.
+            if (stream.multiplier === 1 && !stream.timerPaused) {
+                delete streams[streamId];
+            }
+
+            var anyRunning = false;
+            for (var id in streams) { if (streams[id].secs > 0) anyRunning = true; }
+            if (!anyRunning) {
+                endTicker();
+                updateStatus();
+            } else {
+                updateStatus();
+            }
         }
 
         function endTicker() {
@@ -262,52 +335,41 @@ module.exports = function(RED) {
                 clearInterval(ticker);
                 ticker = null;
             }
-
-            secs = -1;
-            warned = false;
         }
 
         node.on("TIX", function() {
-            if (secs > 0.1) {
-                if (!timerPaused) {
-                    if (node.config.highPrecision) {
-                        secs -= 0.1; // Decrement by 0.1 for high precision mode
-                    } else {
-                        secs -= 1; // Standard 1 second decrement
+            var activeCount = 0;
+            for (var id in streams) {
+                var stream = streams[id];
+                if (stream.secs > 0.1) {
+                    if (!stream.timerPaused) {
+                        if (node.config.highPrecision) {
+                            stream.secs -= 0.1; // Decrement by 0.1 for high precision mode
+                        } else {
+                            stream.secs -= 1; // Standard 1 second decrement
+                        }
                     }
+                    if (stream.secs < 0) {
+                        stream.secs = 0;
+                    } else {
+                        var remainingsecsMsg = {
+                            "payload": timerremain(stream.secs)
+                        };
+                        if (node.config.handle === 'each' && node.config.streamProperty) {
+                            RED.util.setMessageProperty(remainingsecsMsg, node.config.streamProperty, id);
+                        } else if (node.config.topic !== '') {
+                            remainingsecsMsg.topic = node.config.topic;
+                        }
+                        node.send([null, remainingsecsMsg]);
+                    }
+                    
+                    checkWarning(stream, id);
+                    activeCount++;
+                } else if (stream.secs !== -1 && stream.secs <= 0.1) {
+                    stopTimer(stream, id);
                 }
-				if (secs < 0) {
-					secs = 0;
-				} else { // we don't need to send a payload message if secs is zero as we will automatically send it in the stopTimer that will execute next
-					var remainingsecsMsg = {
-						"payload": timerremain(secs)
-					};
-					node.send([null, remainingsecsMsg]);
-				}
-
-                // update Running status message
-                checkWarning();
-                if (!timerPaused) {
-                      node.status({
-                      fill: "green",
-                      shape: "dot",
-                      text: timerremain(secs)
-                   })
-                } else {
-                      node.status({
-                      fill: "yellow",
-                      shape: "ring",
-                      text: "Paused: " + timerremain(secs)
-                   })
-                };
-
-            } else if (secs <= 0.1) {
-                stopTimer();
-                secs = 0;
-
-            } else {
-                // Do nothing
             }
+            updateStatus();
         });
 
         node.on("input", function(msg) {
@@ -324,45 +386,54 @@ module.exports = function(RED) {
                 }
             }
 
+            var streamId = "__default__";
+            if (node.config.handle === 'each') {
+                var streamProp = node.config.streamProperty || "topic";
+                streamId = RED.util.getMessageProperty(msg, streamProp);
+                if (streamId === undefined || streamId === null) {
+                    streamId = "__default__";
+                } else {
+                    streamId = String(streamId);
+                }
+            }
+            var stream = getStream(streamId);
+            lastTriggeredStreamId = streamId;
             var propVal = msg[property];
             var propStr = typeof propVal === 'string' ? propVal.trim() : "";
             var isOperator = propStr.match(/^([<>])\s*(-?\d+(?:\.\d+)?)$/) !== null;
             var isMultiplier = propStr.match(/^\*\s*(\d+(?:\.\d+)?)$/) !== null;
-
-            if (msg.topic === "control" || (node.config.allMessagesWithInputDelayAreControl && (!isNaN(propVal) || isOperator || isMultiplier)) || isOperator || isMultiplier) {
-
+            if (msg.topic === "control" || (node.config.allMessagesWithInputDelayAreControl && (!isNaN(propVal) || isOperator || isMultiplier))) {
                 const opMatch = propStr.match(/^([<>])\s*(-?\d+(?:\.\d+)?)$/);
                 if (opMatch) {
                     var op = opMatch[1];
                     var target = timeRebase(parseFloat(opMatch[2]));
-                    target = applyMultiplier(target);
-                    var current = (secs > 0) ? secs : 0;
+                    target = applyMultiplier(target, stream);
+                    var current = (stream.secs > 0) ? stream.secs : 0;
                     var newSecs = null;
                     if (op === '>') { if (current < target) newSecs = target; }
                     else            { if (current > target) newSecs = target; }
                     if (newSecs !== null) {
-                        secs = newSecs < 0 ? 0 : newSecs;
-                        timerPaused = false;
+                        stream.secs = newSecs < 0 ? 0 : newSecs;
+                        stream.timerPaused = false;
                         if (ticker) {
-                            node.status({ fill:"green", shape:"dot", text:"Running: " + timerremain(secs) });
-                        } else if (secs > 0 && node.config.startCountdownOnControlMessage) {
-                            startTimer(true);
+                            updateStatus();
+                        } else if (stream.secs > 0 && node.config.startCountdownOnControlMessage) {
+                            startTimer(true, stream, streamId);
                         } else {
-                            node.status({ fill:"red", shape:"dot", text:"Stopped: " + timerremain(secs) });
+                            updateStatus();
                         }
-                        checkWarning();
+                        checkWarning(stream, streamId);
                     }
                     return;
                 }
-
                 const multMatch = propStr.match(/^\*\s*(\d+(?:\.\d+)?)$/);
                 if (multMatch) {
                     var newMult = parseFloat(multMatch[1]);
                     if (newMult > 0) {
-                        if (secs > 0) secs = secs * (newMult / multiplier);
-                        multiplier = newMult;
-                        if (ticker) node.status({ fill:"green", shape:"dot", text:"Running: " + timerremain(secs) });
-                        checkWarning();
+                        if (stream.secs > 0) stream.secs = stream.secs * (newMult / stream.multiplier);
+                        stream.multiplier = newMult;
+                        if (ticker) updateStatus();
+                        checkWarning(stream, streamId);
                     }
                     return;
                 }
@@ -370,7 +441,6 @@ module.exports = function(RED) {
                 if (!isNaN(propVal)) { //Strings containing valid number are 'numbers'...
 
                     var numberValue = 0;
-
                     if (typeof msg[property] === 'string') {
                         const cleanedInput = msg[property].trim();
                         var signedString = false;
@@ -383,57 +453,47 @@ module.exports = function(RED) {
                     } else { //Input is a true number
                         numberValue = msg[property];
                     }
-
                     if ((Number.isInteger(+numberValue) && (numberValue > 0)) && !signedString) {
-                        timeout = applyMultiplier(timeRebase(numberValue));
+                        timeout = applyMultiplier(timeRebase(numberValue), stream);
                     } else {
-                        timeout = secs + applyMultiplier(timeRebase(Math.trunc(numberValue)));
+                        timeout = stream.secs + applyMultiplier(timeRebase(Math.trunc(numberValue)), stream);
                     }
-
                     //Make sure number is not less than zero...
-                    secs = timeout < 0 ? 0 : timeout;
-                    timerPaused = false;
+                    stream.secs = timeout < 0 ? 0 : timeout;
+                    stream.timerPaused = false;
 
                     if (ticker) {
                         // countdown is running
                         if (node.config.setTimeToNewWhileRunning) {
-                            secs = timeout;
-                            checkWarning();
-                            node.status({
-                                fill: "green",
-                                shape: "dot",
-                                text: "Running: " + timerremain(secs)
-                            });
+                            stream.secs = timeout;
+                            checkWarning(stream, streamId);
+                            updateStatus();
                         }
                     } else {
                         // countdown is stopped
                         if (node.config.startCountdownOnControlMessage) {
                             // Fix: use the timeout value from control message when starting
-                            secs = timeout;
-                            startTimer(true);
+                            stream.secs = timeout;
+                            startTimer(true, stream, streamId);
                         } else {
-                            node.status({
-                                fill: "red",
-                                shape: "dot",
-                                text: "Stopped: " + timerremain(secs)
-                            });
+                            updateStatus();
                         }
-
                     }
                 } else {
                     if (msg[property] && typeof msg[property] === 'string') {
                         const cmd = msg[property].toLowerCase();
                         if (cmd === "cancel") {
-                            stopTimer(false);
+                            stopTimer(stream, streamId, false);
                         }
                         if (cmd === "reset") {
-                            startTimer(false);
+                            startTimer(false, stream, streamId);
                         }
                         if (cmd === "pause") {
-                            timerPaused = !timerPaused;
+                            stream.timerPaused = !stream.timerPaused;
+                            updateStatus();
                         }
-                        if (cmd === "preload" && (secs > 0) && (!ticker)) {
-                            startTimer(true);
+                        if (cmd === "preload" && (stream.secs > 0) && (!ticker)) {
+                            startTimer(true, stream, streamId);
                         }
                     }
                 }
@@ -441,28 +501,28 @@ module.exports = function(RED) {
                 if (node.config.payloadTimerStopType === 'msg') {
                     var prop = RED.util.evaluateNodeProperty(node.config.payloadTimerStop, node.config.payloadTimerStopType, node);
                     if (msg.hasOwnProperty(prop)) {
-                        stopMsg = {
+                        stream.stopMsg = {
                             "payload": msg[prop]
                         };
                     } else {
                         node.warn("Property not set correctly Msg does not have " + prop);
-                        stopMsg = {
+                        stream.stopMsg = {
                             "payload": prop
                         };
                     }
                 }
                 if (ticker && node.config.resetWhileRunning) {
-                    endTicker();
-                    startTimer(false);
+                    // startTimer reloads this stream from the GUI value and reuses the existing ticker.
+                    startTimer(false, stream, streamId);
                 }
                 if (msg[property] === false || msg[property] === 0 || (msg[property] + "").toLowerCase() === "off"
                      || (msg[property] + "").toLowerCase() === "stop" || (msg[property] + "") === "0") {
-                    stopTimer();
+                    stopTimer(stream, streamId);
                 }
                 else {
                   if (msg[property] === true || msg[property] === 1 || (msg[property] + "").toLowerCase() === "on"
                      || (msg[property] + "").toLowerCase() === "start" || (msg[property] + "") === "1") {
-                    startTimer(false);
+                    startTimer(false, stream, streamId);
                    }
                 }
             }

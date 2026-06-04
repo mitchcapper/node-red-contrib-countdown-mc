@@ -54,6 +54,17 @@
     <input type="hidden" id="node-input-propertyType">
   </div>
 
+  <div class="form-row">
+    <label for="node-input-handle"><i class="fa fa-sitemap"></i> Handling</label>
+    <select id="node-input-handle" style="width:70%;">
+      <option value="all">all messages</option>
+      <option value="each">each separate message</option>
+    </select>
+  </div>
+  <div class="form-row" id="node-row-streamProperty" style="display:none;">
+    <label for="node-input-streamProperty"><i class="fa fa-tag"></i> using msg.</label>
+    <input type="text" id="node-input-streamProperty" style="width: 70%;" placeholder="topic">
+  </div>
 <fieldset>
   <legend>Output Message Settings:</legend>
   <div class="form-row">
@@ -165,7 +176,7 @@
              only exception is integers with a positive sign (eg: +12), where the sign is ignored.<br />
              If you want to add a positive value to the count, make it a fraction or a string - eg: 12.1 or "+12".<br /><br />
              If any adjustment makes the count value less than zero, the count ends.</p>
-          <p><b>Leading Operators:</b> You can use operators regardless of the message topic.<br />
+          <p><b>Leading Operators:</b> These follow the same gating as numeric values - send them with the <code>control</code> topic, or enable "All messages...as control" to use them without it.<br />
              <code>>N</code>: Floor - if time is below N, set to N.<br />
              <code>&lt;N</code>: Ceiling - if time is above N, set to N.<br />
              <code>*N</code>: Multiplier - instantly scales the active countdown by N. Subsequent time values are scaled by this factor. Set back to <code>*1</code> to clear.</p>
@@ -247,7 +258,9 @@
       property: { value: "payload" },
       propertyType: { value: "msg" },
       allMessagesWithInputDelayAreControl: { value: false }, // New option for handling messages with delay property
-      warningTime: { value: "", validate: function(v) { return v === "" || !isNaN(v); } },
+      warningTime: { value: "", validate: function(v) { return v === undefined || v === null || v === "" || !isNaN(v); } },
+      handle: { value: "all" },
+      streamProperty: { value: "topic" },
       // Keep these for backwards compatibility
       minuteCounter: { value: false },
     },
@@ -290,6 +303,14 @@
         typeField: $("#node-input-propertyType"),
         types: ['msg', 'flow', 'global']
       });
+      $("#node-input-handle").change(function() {
+          if ($(this).val() === "each") {
+              $("#node-row-streamProperty").show();
+          } else {
+              $("#node-row-streamProperty").hide();
+          }
+      });
+      $("#node-input-handle").change();
     }
   });
 </script>
