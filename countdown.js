@@ -14,6 +14,13 @@
 Changes:
 
   V2.0.0:
+  V2.1.0:
+
+  * Added leading comparison operators (>N, <N) for floor/ceiling limits
+  * Added multiplier support (*N) to scale the active timer
+  * Added warning output threshold option (outputs raw numeric time)
+  * Note: Operators/multipliers bypass control topic requirement.
+
 
   * Added milliseconds support for more precise timing
   * Added hours support for longer time spans
@@ -100,6 +107,28 @@ module.exports = function(RED) {
         var timeout = timeRebase(parseInt(node.config.timer));
         var timerPaused = false;
         var stopMsg = {};
+        var multiplier = 1;
+        var warned = false;
+        
+        function applyMultiplier(rebasedSecs) { return rebasedSecs * multiplier; }
+        
+        function warningThresholdSecs() {
+            var w = parseFloat(node.config.warningTime);
+            return (isNaN(w) || w <= 0) ? null : timeRebase(w);
+        }
+        
+        function checkWarning() {
+            var t = warningThresholdSecs();
+            if (t === null) return;
+            if (secs > t) { warned = false; return; }
+            if (secs > 0 && !warned) {
+                warned = true;
+                var rawRemaining = Number((secs / timeRebase(1)).toFixed(2));
+                var wmsg = { payload: rawRemaining };
+                if (node.config.topic !== '') wmsg.topic = node.config.topic;
+                node.send([null, null, wmsg]);
+            }
+        }
         var tickInterval = node.config.highPrecision ? 100 : 1000; // Default tick in milliseconds
 
         this.status({
@@ -161,6 +190,8 @@ module.exports = function(RED) {
                 secs = timeout;
             }
             timerPaused = false;
+            warned = false;
+            checkWarning();
 
             // running status message
             node.status({
@@ -233,6 +264,7 @@ module.exports = function(RED) {
             }
 
             secs = -1;
+            warned = false;
         }
 
         node.on("TIX", function() {
@@ -254,6 +286,7 @@ module.exports = function(RED) {
 				}
 
                 // update Running status message
+                checkWarning();
                 if (!timerPaused) {
                       node.status({
                       fill: "green",
@@ -291,9 +324,50 @@ module.exports = function(RED) {
                 }
             }
 
-            if (msg.topic === "control" || (node.config.allMessagesWithInputDelayAreControl && ! isNaN(msg[property]) ) ) {
+            var propVal = msg[property];
+            var propStr = typeof propVal === 'string' ? propVal.trim() : "";
+            var isOperator = propStr.match(/^([<>])\s*(-?\d+(?:\.\d+)?)$/) !== null;
+            var isMultiplier = propStr.match(/^\*\s*(\d+(?:\.\d+)?)$/) !== null;
 
-                if (!isNaN(msg[property])) { //Strings containing valid number are 'numbers'...
+            if (msg.topic === "control" || (node.config.allMessagesWithInputDelayAreControl && (!isNaN(propVal) || isOperator || isMultiplier)) || isOperator || isMultiplier) {
+
+                const opMatch = propStr.match(/^([<>])\s*(-?\d+(?:\.\d+)?)$/);
+                if (opMatch) {
+                    var op = opMatch[1];
+                    var target = timeRebase(parseFloat(opMatch[2]));
+                    target = applyMultiplier(target);
+                    var current = (secs > 0) ? secs : 0;
+                    var newSecs = null;
+                    if (op === '>') { if (current < target) newSecs = target; }
+                    else            { if (current > target) newSecs = target; }
+                    if (newSecs !== null) {
+                        secs = newSecs < 0 ? 0 : newSecs;
+                        timerPaused = false;
+                        if (ticker) {
+                            node.status({ fill:"green", shape:"dot", text:"Running: " + timerremain(secs) });
+                        } else if (secs > 0 && node.config.startCountdownOnControlMessage) {
+                            startTimer(true);
+                        } else {
+                            node.status({ fill:"red", shape:"dot", text:"Stopped: " + timerremain(secs) });
+                        }
+                        checkWarning();
+                    }
+                    return;
+                }
+
+                const multMatch = propStr.match(/^\*\s*(\d+(?:\.\d+)?)$/);
+                if (multMatch) {
+                    var newMult = parseFloat(multMatch[1]);
+                    if (newMult > 0) {
+                        if (secs > 0) secs = secs * (newMult / multiplier);
+                        multiplier = newMult;
+                        if (ticker) node.status({ fill:"green", shape:"dot", text:"Running: " + timerremain(secs) });
+                        checkWarning();
+                    }
+                    return;
+                }
+
+                if (!isNaN(propVal)) { //Strings containing valid number are 'numbers'...
 
                     var numberValue = 0;
 
@@ -311,9 +385,9 @@ module.exports = function(RED) {
                     }
 
                     if ((Number.isInteger(+numberValue) && (numberValue > 0)) && !signedString) {
-                        timeout = timeRebase(numberValue);
+                        timeout = applyMultiplier(timeRebase(numberValue));
                     } else {
-                        timeout = secs + timeRebase(Math.trunc(numberValue));
+                        timeout = secs + applyMultiplier(timeRebase(Math.trunc(numberValue)));
                     }
 
                     //Make sure number is not less than zero...
@@ -324,6 +398,7 @@ module.exports = function(RED) {
                         // countdown is running
                         if (node.config.setTimeToNewWhileRunning) {
                             secs = timeout;
+                            checkWarning();
                             node.status({
                                 fill: "green",
                                 shape: "dot",

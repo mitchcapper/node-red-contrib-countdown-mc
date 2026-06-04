@@ -42,6 +42,11 @@
     <input style="display:inline-block; width:15px; vertical-align:top;" type="checkbox" id="node-input-allMessagesWithInputDelayAreControl">
     <span style="display:inline-block; width:70%">All messages with delay property set to a number are treated as control messages</span>&nbsp;
   </div>
+  <div class="form-row">
+    <label for="node-input-warningTime"><i class="fa fa-bell"></i> Warning</label>
+    <input style="width:15%" type="text" id="node-input-warningTime" placeholder="e.g. 5">
+    <span style="display:inline-block; width:50%; margin-left:10px; font-size: 12px; color: #777;">Time before end (in configured units) to trigger warning output. Unaffected by multiplier. Leave blank to disable.</span>
+  </div>
 
   <div class="form-row">
     <label for="node-input-property"><i class="fa fa-ellipsis-h"></i> <span>Delay Property (optional)</span></label>
@@ -160,6 +165,10 @@
              only exception is integers with a positive sign (eg: +12), where the sign is ignored.<br />
              If you want to add a positive value to the count, make it a fraction or a string - eg: 12.1 or "+12".<br /><br />
              If any adjustment makes the count value less than zero, the count ends.</p>
+          <p><b>Leading Operators:</b> You can use operators regardless of the message topic.<br />
+             <code>>N</code>: Floor - if time is below N, set to N.<br />
+             <code>&lt;N</code>: Ceiling - if time is above N, set to N.<br />
+             <code>*N</code>: Multiplier - instantly scales the active countdown by N. Subsequent time values are scaled by this factor. Set back to <code>*1</code> to clear.</p>
         <dt>topic <span class="property-type">integer|fraction|string</span></dt>
         <dd>set to <code>control</code>.</dd>
     </dl>
@@ -179,6 +188,12 @@
                 Also outputs <code>true</code> when the counter starts and <code>false</code> when the counter reaches zero.<br /><br />
                 The first counter numeric value is output shortly after the count starts. The last counter output is 0.<br />
                 If milliseconds mode is selected or high precision option is checked, updates happen every 100ms for more precision.<br /></dd>
+            </dl>
+        </li>
+        <li>Third output
+            <dl class="message-properties">
+                <dt>payload <span class="property-type">number</span></dt>
+                <dd>Warning trigger. Emits the raw remaining time when the countdown drops below the configured warning threshold. Fires once per crossing.</dd>
             </dl>
         </li>
     </ol>
@@ -215,7 +230,7 @@
     category: "function",
     color:"#ffaaaa",
     inputLabels: "Any input starts the timer",
-    outputLabels: ["Countdown start/stop messages", "Remaining time formatted"],
+    outputLabels: ["Countdown start/stop messages", "Remaining time formatted", "Warning (threshold crossed)"],
     defaults: {
       name: { value: "" },
       topic: { value: "" },
@@ -232,11 +247,12 @@
       property: { value: "payload" },
       propertyType: { value: "msg" },
       allMessagesWithInputDelayAreControl: { value: false }, // New option for handling messages with delay property
+      warningTime: { value: "", validate: function(v) { return v === "" || !isNaN(v); } },
       // Keep these for backwards compatibility
       minuteCounter: { value: false },
     },
     inputs: 1,
-    outputs: 2,
+    outputs: 3,
     icon: "stopwatch.png",
     label: function() {
         return this.name || "countdown";
