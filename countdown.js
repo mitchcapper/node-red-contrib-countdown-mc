@@ -108,7 +108,7 @@ module.exports = function(RED) {
         var timeout = timeRebase(parseInt(node.config.timer));
         var streams = {};
         var lastTriggeredStreamId = null;
-        
+
         function getStream(id) {
             if (!streams[id]) {
                 streams[id] = {
@@ -127,7 +127,7 @@ module.exports = function(RED) {
             var w = parseFloat(node.config.warningTime);
             return (isNaN(w) || w <= 0) ? null : timeRebase(w);
         }
-        
+
         function checkWarning(stream, streamId) {
             var t = warningThresholdSecs();
             if (t === null) return;
@@ -142,7 +142,7 @@ module.exports = function(RED) {
                 node.send([null, null, wmsg]);
             }
         }
-        
+
         function updateStatus() {
             // Prefer the most recently triggered stream as the one shown, if it qualifies.
             function pick(list) {
@@ -301,7 +301,7 @@ module.exports = function(RED) {
                     "payload": timerremain(0),
                     "cancled": cancel
                 };
-                
+
                 if (node.config.handle === 'each' && node.config.streamProperty) {
                     RED.util.setMessageProperty(remainingsecsMsg, node.config.streamProperty, streamId);
                 } else if (node.config.topic !== '') {
@@ -309,7 +309,7 @@ module.exports = function(RED) {
                 }
                 node.send([msg, remainingsecsMsg]);
             }
-            
+
             stream.secs = -1;
             stream.warned = false;
 
@@ -362,7 +362,7 @@ module.exports = function(RED) {
                         }
                         node.send([null, remainingsecsMsg]);
                     }
-                    
+
                     checkWarning(stream, id);
                     activeCount++;
                 } else if (stream.secs !== -1 && stream.secs <= 0.1) {
@@ -402,7 +402,12 @@ module.exports = function(RED) {
             var propStr = typeof propVal === 'string' ? propVal.trim() : "";
             var isOperator = propStr.match(/^([<>])\s*(-?\d+(?:\.\d+)?)$/) !== null;
             var isMultiplier = propStr.match(/^\*\s*(\d+(?:\.\d+)?)$/) !== null;
-            if (msg.topic === "control" || (node.config.allMessagesWithInputDelayAreControl && (!isNaN(propVal) || isOperator || isMultiplier))) {
+            // Named commands only do something inside the control branch below; recognize them
+            // here so "all messages are control" mode routes them there too (start/stop already
+            // work via the else branch). Note: "reset" intentionally maps to the control-branch
+            // reset (restart at GUI value), not the resetWhileRunning behavior of the else branch.
+            var isCommand = /^(pause|reset|cancel|preload)$/i.test(propStr);
+            if (msg.topic === "control" || (node.config.allMessagesWithInputDelayAreControl && (!isNaN(propVal) || isOperator || isMultiplier || isCommand))) {
                 const opMatch = propStr.match(/^([<>])\s*(-?\d+(?:\.\d+)?)$/);
                 if (opMatch) {
                     var op = opMatch[1];
@@ -439,6 +444,17 @@ module.exports = function(RED) {
                 }
 
                 if (!isNaN(propVal)) { //Strings containing valid number are 'numbers'...
+
+                    // A zero value is a STOP, matching the plain-message STOP semantics
+                    // (0 / "0" / false / "off" / "stop"). Without this, control-mode 0 would
+                    // fall into the relative-adjust path below and add 0 (a no-op).
+                    // Exclude signed-string zeros ("+0" / "-0"): those are relative offsets
+                    // (possibly computed) and must stay no-ops, not stops.
+                    var signedZeroStr = (typeof propVal === 'string') && (propStr.charAt(0) === '+' || propStr.charAt(0) === '-');
+                    if (Number(propVal) === 0 && !signedZeroStr) {
+                        stopTimer(stream, streamId);
+                        return;
+                    }
 
                     var numberValue = 0;
                     if (typeof msg[property] === 'string') {
