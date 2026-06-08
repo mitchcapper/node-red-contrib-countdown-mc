@@ -83,6 +83,17 @@
     <input style="width:70%" type="text" id="node-input-payloadTimerStop">
     <input type="hidden" id="node-input-payloadTimerStopType">
   </div>
+
+  <div class="form-row">
+    <label for="node-input-reasonProperty"><i class="fa fa-info-circle"></i> Reason property</label>
+    <input style="width:70%" type="text" id="node-input-reasonProperty" placeholder="e.g. reason (leave blank to disable)">
+  </div>
+  <div class="form-row">
+    <label>&nbsp;</label>
+    <span style="display:inline-block; width:70%; font-size: 12px; color: #777;">If set, start/stop messages get this property filled with why the timer fired
+    (start: <code>newMessage</code>, <code>control</code>, <code>reset</code>, <code>preload</code>, <code>restart</code>;
+    stop: <code>expired</code>, <code>stopped</code>, <code>cancelled</code>). Leave blank to add nothing.</span>
+  </div>
 </fieldset>
 </script>
 
@@ -184,6 +195,14 @@
         <dd>set to <code>control</code>.</dd>
     </dl>
 
+  <h4>Reason property</h4>
+  <p>Optionally name a message property (e.g. <code>reason</code>, or a nested path like <code>data.reason</code>) to have the node stamp <em>why</em> each start/stop message fired.
+  This is useful because the primary output payload (e.g. <code>false</code>) is identical whether the timer was stopped by a command or ran out on its own. Leave blank to add nothing (default).</p>
+  <ul>
+    <li><b>Start reasons:</b> <code>newMessage</code> (plain start input), <code>control</code> (started from a control/numeric value), <code>reset</code>, <code>preload</code>, <code>restart</code> (restarted while running via "restart" option).</li>
+    <li><b>Stop reasons:</b> <code>expired</code> (counted down to zero), <code>stopped</code> (explicit stop command), <code>cancelled</code> (<code>cancel</code> command - emitted on the second output only, since cancel sends no primary message).</li>
+  </ul>
+
   <h3>Outputs</h3>
     <ol class="node-ports">
         <li>Primary output
@@ -261,6 +280,7 @@
       warningTime: { value: "", validate: function(v) { return v === undefined || v === null || v === "" || !isNaN(v); } },
       handle: { value: "all" },
       streamProperty: { value: "topic" },
+      reasonProperty: { value: "" }, // Optional property to stamp the start/stop reason onto outgoing messages
       // Keep these for backwards compatibility
       minuteCounter: { value: false },
     },

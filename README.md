@@ -59,6 +59,9 @@ Please not the multiplier feature is for advanced use cases only.   It acts to s
 - Added leading comparison operators (>N floor, <N ceiling); gated the same as numeric values (control topic, or "All messages...as control")
 - Added a third output and configuration for a warning time threshold that emits raw numeric time
 - Added multiplier support (*N) to dynamically scale the active timer; same gating as numeric values.
+- Added an optional **Reason property** that stamps start/stop messages with why they fired (start: `newMessage`/`control`/`reset`/`preload`/`restart`; stop: `expired`/`stopped`/`cancelled`). Blank = disabled.
+- Fixed: in "All messages...as control" mode a `0`/`"0"` value now stops the timer (previously a no-op); signed-string zeros (`"+0"`/`"-0"`) remain relative no-ops.
+- Added: named commands (`pause`/`reset`/`cancel`/`preload`) are now honored in "All messages...as control" mode.
 
 ## 2.0.0:
 
@@ -124,6 +127,14 @@ The ***Topic*** can be set to any string value. This string is added to the outp
 Set the ***Timer On payload*** to any payload type and value which is sent when the counter starts.
 Set the ***Timer Off payload*** to any payload type and value which is sent when the counter elapses.
 In both cases, also nothing to be emitted may be chosen.
+
+#### Reason property
+The configured ***Timer On / Off payload*** is the same regardless of *why* the timer started or stopped - for example the *Off payload* (commonly `false`) is emitted both when the timer is explicitly stopped and when it naturally counts down to zero. If you need to tell these cases apart downstream, set the **Reason property** to the name of a message property (e.g. `reason`, or a nested path like `data.reason`). When set, the node stamps that property on the start/stop messages with one of:
+
+- **Start reasons:** `newMessage` (a normal start input), `control` (started from a control/numeric value while *Start countdown on control message* is enabled), `reset`, `preload`, `restart` (restarted while running via the *restart* option).
+- **Stop reasons:** `expired` (counted down to zero), `stopped` (explicit stop command - `0`/`false`/`off`/`stop`), `cancelled` (the `cancel` command; stamped on the secondary output only, since `cancel` sends no primary message).
+
+Leave the field blank (default) to add nothing and keep the original message shape.
 
 #### Flags
 You can configure the timer to

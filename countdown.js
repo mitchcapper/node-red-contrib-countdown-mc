@@ -21,6 +21,11 @@ Changes:
   * Added warning output (third output) with a configurable threshold; emits raw numeric time
   * Note: operators (>N/<N) and multipliers (*N) follow the same gating as numeric values -
     they require the "control" topic unless "All messages...as control" is enabled.
+  * Fixed: in "all messages as control" mode, a 0 / "0" value now stops the timer (was a no-op);
+    signed-string zeros ("+0"/"-0") remain relative no-ops.
+  * Added: named commands (pause/reset/cancel/preload) are honored in "all messages as control" mode.
+  * Added optional "reason property": when set, start/stop messages are stamped with why they fired
+    (start: newMessage/control/reset/preload/restart; stop: expired/stopped/cancelled). Blank = off.
 
   V2.0.0:
 
@@ -101,6 +106,9 @@ module.exports = function(RED) {
         if (config.allMessagesWithInputDelayAreControl === undefined) {
             node.config.allMessagesWithInputDelayAreControl = false;
         }
+        if (config.reasonProperty === undefined) {
+            node.config.reasonProperty = "";
+        }
 
         // Local variables
         var ticker = null;
@@ -123,6 +131,15 @@ module.exports = function(RED) {
         }
 
         function applyMultiplier(rebasedSecs, stream) { return rebasedSecs * stream.multiplier; }
+
+        // Stamps why a start/stop fired onto the outgoing message, but only when the user has
+        // named a target property. Left blank (default) nothing is added, preserving the original
+        // message shape. Supports nested paths (e.g. "data.reason") via setMessageProperty.
+        function setReason(msg, reason) {
+            if (msg && node.config.reasonProperty) {
+                RED.util.setMessageProperty(msg, node.config.reasonProperty, reason, true);
+            }
+        }
         function warningThresholdSecs() {
             var w = parseFloat(node.config.warningTime);
             return (isNaN(w) || w <= 0) ? null : timeRebase(w);
@@ -243,7 +260,7 @@ module.exports = function(RED) {
             return displayValue;
         }
 
-        function startTimer(preload, stream, streamId) {
+        function startTimer(preload, stream, streamId, reason = "newMessage") {
             if (!preload) {
                 timeout = timeRebase(parseInt(node.config.timer));
                 stream.secs = timeout;
@@ -267,6 +284,7 @@ module.exports = function(RED) {
                 // Timer Message
                 var msg = {}
                 msg.payload = RED.util.evaluateNodeProperty(node.config.payloadTimerStart, node.config.payloadTimerStartType, node);
+                setReason(msg, reason);
                 if (node.config.handle === 'each' && node.config.streamProperty) {
                     RED.util.setMessageProperty(msg, node.config.streamProperty, streamId);
                 } else if (node.config.topic !== '') {
@@ -276,7 +294,7 @@ module.exports = function(RED) {
             }
         }
 
-        function stopTimer(stream, streamId, output = true) {
+        function stopTimer(stream, streamId, output = true, reason = "stopped") {
             // Timer Message
             // only send stop msg if type is not equal "send nothing" option
             if (node.config.payloadTimerStopType !== "nul") {
@@ -284,10 +302,15 @@ module.exports = function(RED) {
                 var cancel = false;
                 if (output) {
                     if (node.config.payloadTimerStopType === 'msg') {
-                        msg = stream.stopMsg;
+                        // shallow-copy so we don't stamp 'reason' onto the stored stopMsg
+                        msg = Object.assign({}, stream.stopMsg);
                     } else {
                         msg.payload = RED.util.evaluateNodeProperty(node.config.payloadTimerStop, node.config.payloadTimerStopType, node);
                     }
+                    // Tell downstream WHY the stop fired: the payload (e.g. false) is identical
+                    // for a natural expiry and an explicit stop command. Only added when the
+                    // user configured a reason property.
+                    setReason(msg, reason);
                     if (node.config.handle === 'each' && node.config.streamProperty) {
                         RED.util.setMessageProperty(msg, node.config.streamProperty, streamId);
                     } else if (node.config.topic !== '') {
@@ -301,6 +324,7 @@ module.exports = function(RED) {
                     "payload": timerremain(0),
                     "cancled": cancel
                 };
+                setReason(remainingsecsMsg, reason);
 
                 if (node.config.handle === 'each' && node.config.streamProperty) {
                     RED.util.setMessageProperty(remainingsecsMsg, node.config.streamProperty, streamId);
@@ -366,7 +390,7 @@ module.exports = function(RED) {
                     checkWarning(stream, id);
                     activeCount++;
                 } else if (stream.secs !== -1 && stream.secs <= 0.1) {
-                    stopTimer(stream, id);
+                    stopTimer(stream, id, true, "expired");
                 }
             }
             updateStatus();
@@ -423,7 +447,7 @@ module.exports = function(RED) {
                         if (ticker) {
                             updateStatus();
                         } else if (stream.secs > 0 && node.config.startCountdownOnControlMessage) {
-                            startTimer(true, stream, streamId);
+                            startTimer(true, stream, streamId, "control");
                         } else {
                             updateStatus();
                         }
@@ -490,7 +514,7 @@ module.exports = function(RED) {
                         if (node.config.startCountdownOnControlMessage) {
                             // Fix: use the timeout value from control message when starting
                             stream.secs = timeout;
-                            startTimer(true, stream, streamId);
+                            startTimer(true, stream, streamId, "control");
                         } else {
                             updateStatus();
                         }
@@ -499,17 +523,17 @@ module.exports = function(RED) {
                     if (msg[property] && typeof msg[property] === 'string') {
                         const cmd = msg[property].toLowerCase();
                         if (cmd === "cancel") {
-                            stopTimer(stream, streamId, false);
+                            stopTimer(stream, streamId, false, "cancelled");
                         }
                         if (cmd === "reset") {
-                            startTimer(false, stream, streamId);
+                            startTimer(false, stream, streamId, "reset");
                         }
                         if (cmd === "pause") {
                             stream.timerPaused = !stream.timerPaused;
                             updateStatus();
                         }
                         if (cmd === "preload" && (stream.secs > 0) && (!ticker)) {
-                            startTimer(true, stream, streamId);
+                            startTimer(true, stream, streamId, "preload");
                         }
                     }
                 }
@@ -529,7 +553,7 @@ module.exports = function(RED) {
                 }
                 if (ticker && node.config.resetWhileRunning) {
                     // startTimer reloads this stream from the GUI value and reuses the existing ticker.
-                    startTimer(false, stream, streamId);
+                    startTimer(false, stream, streamId, "restart");
                 }
                 if (msg[property] === false || msg[property] === 0 || (msg[property] + "").toLowerCase() === "off"
                      || (msg[property] + "").toLowerCase() === "stop" || (msg[property] + "") === "0") {
